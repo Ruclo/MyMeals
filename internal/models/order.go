@@ -1,16 +1,16 @@
 package models
 
 import (
-	"errors"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 )
 
 type OrderStatus string
 
 const (
-	StatusDone 		OrderStatus = "Done"
-	StatusPending 	OrderStatus = "Pending"
+	StatusDone    OrderStatus = "Done"
+	StatusPending OrderStatus = "Pending"
 )
 
 func (s OrderStatus) Valid() error {
@@ -27,7 +27,7 @@ func (s *OrderStatus) Scan(value interface{}) error {
 		*s = ""
 		return nil
 	}
-	
+
 	str, ok := value.(string)
 	if !ok {
 		bytes, ok := value.([]byte)
@@ -36,7 +36,7 @@ func (s *OrderStatus) Scan(value interface{}) error {
 		}
 		str = string(bytes)
 	}
-	
+
 	*s = OrderStatus(str)
 	return s.Valid()
 }
@@ -49,18 +49,17 @@ func (s OrderStatus) Value() (driver.Value, error) {
 }
 
 type Order struct {
-	ID      uint   `gorm:"primaryKey"`
-	TableNo int		`gorm:"check:table_no >= 1"`
-	Name    string 	//check null, empty
-	Notes   string	
-	Meals   []Meal `gorm:"many2many:order_meals"`
-	Review  *Review     `gorm:"foreignKey:OrderID"`
+	ID      uint    `gorm:"primaryKey"`
+	TableNo int     `gorm:"check:table_no >= 1"`
+	Name    string  `gorm:"not null; check name <> ''"`
+	Notes   string  `gorm:"not null; check notes <> ''"`
+	Meals   []Meal  `gorm:"many2many:order_meals"`
+	Review  *Review `gorm:"foreignKey:OrderID"`
 }
 
 type OrderMeal struct {
-	OrderID uint `gorm:"primaryKey"`
-	MealID  uint `gorm:"primaryKey"`
-	Quantity int `gorm:"check:quantity >= 1"`
+	OrderID  uint `gorm:"primaryKey"`
+	MealID   uint `gorm:"primaryKey"`
+	Quantity int  `gorm:"check:quantity >= 1"`
 	Status   OrderStatus
 }
-

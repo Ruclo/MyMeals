@@ -1,6 +1,6 @@
 package models
 
 type StaffMember struct {
-		Username string `gorm:"primaryKey"`
-		Password string		//min length 8
+	Username string `gorm:"primaryKey"`
+	Password string `gorm:"not null"`
 }

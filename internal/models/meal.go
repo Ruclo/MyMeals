@@ -1,21 +1,21 @@
 package models
 
 import (
-	"github.com/shopspring/decimal"
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"github.com/shopspring/decimal"
 )
 
 type MealCategory string
 
-//DB Initialisation
+// DB Initialisation
 const (
-	Drinks        MealCategory = "Drinks"
-	Starters      MealCategory = "Starters"
-	MainCourses   MealCategory = "Main Courses"
-	SideDishes    MealCategory = "Side Dishes"
-	Desserts      MealCategory = "Desserts"
+	Drinks      MealCategory = "Drinks"
+	Starters    MealCategory = "Starters"
+	MainCourses MealCategory = "Main Courses"
+	SideDishes  MealCategory = "Side Dishes"
+	Desserts    MealCategory = "Desserts"
 )
 
 func (c MealCategory) Valid() error {
@@ -32,7 +32,7 @@ func (c *MealCategory) Scan(value interface{}) error {
 		*c = ""
 		return nil
 	}
-	
+
 	str, ok := value.(string)
 	if !ok {
 		bytes, ok := value.([]byte)
@@ -41,7 +41,7 @@ func (c *MealCategory) Scan(value interface{}) error {
 		}
 		str = string(bytes)
 	}
-	
+
 	*c = MealCategory(str)
 	return c.Valid()
 }
@@ -53,12 +53,10 @@ func (c MealCategory) Value() (driver.Value, error) {
 	return string(c), nil
 }
 
-
-
 type Meal struct {
-	ID          uint        	`gorm:"primaryKey"`
-	Category    MealCategory
-	Description string			//not empty
-	PhotoURL    string			//not empty
-	Price       decimal.Decimal	`gorm:"type:numeric(10,2)"`
+	ID          uint            `gorm:"primaryKey"`
+	Category    MealCategory    `gorm:"not null"`
+	Description string          `gorm:"not null; check description <> ''"`
+	PhotoURL    string          `gorm:"not null; check description <> ''"`
+	Price       decimal.Decimal `gorm:"type:numeric(10,2); check price > 0"`
 }
