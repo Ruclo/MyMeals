@@ -54,7 +54,8 @@ func (c MealCategory) Value() (driver.Value, error) {
 }
 
 type Meal struct {
-	ID          uint            `gorm:"primaryKey"`
+	ID          uint            `gorm:"primaryKey;autoIncrement"`
+	Name        string          `gorm:"not null; check name <> ''"`
 	Category    MealCategory    `gorm:"not null"`
 	Description string          `gorm:"not null; check description <> ''"`
 	PhotoURL    string          `gorm:"not null; check description <> ''"`

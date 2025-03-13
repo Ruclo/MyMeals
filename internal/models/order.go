@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"time"
 )
 
 type OrderStatus string
@@ -49,12 +50,13 @@ func (s OrderStatus) Value() (driver.Value, error) {
 }
 
 type Order struct {
-	ID      uint    `gorm:"primaryKey"`
-	TableNo int     `gorm:"check:table_no >= 1"`
-	Name    string  `gorm:"not null; check name <> ''"`
-	Notes   string  `gorm:"not null; check notes <> ''"`
-	Meals   []Meal  `gorm:"many2many:order_meals"`
-	Review  *Review `gorm:"foreignKey:OrderID"`
+	ID        uint   `gorm:"primaryKey;autoIncrement"`
+	TableNo   int    `gorm:"check:table_no >= 1"`
+	Name      string `gorm:"not null; check name <> ''"`
+	Notes     string `gorm:"not null"`
+	Meals     []Meal `gorm:"many2many:order_meals"`
+	CreatedAt time.Time
+	Review    *Review `gorm:"foreignKey:OrderID"`
 }
 
 type OrderMeal struct {
