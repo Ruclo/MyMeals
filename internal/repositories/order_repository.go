@@ -13,6 +13,7 @@ type OrderRepository interface {
 	Create(order *models.Order) error
 	AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error)
 	AddReview(review *models.Review) error
+	UpdateStatus(orderId, mealID uint, status models.OrderStatus) error
 }
 
 func NewOrderRepository(db *gorm.DB) *OrderRepositoryImpl {
@@ -58,7 +59,7 @@ func (r *OrderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*
 	if err != nil {
 		return nil, err
 	}
-	
+
 	query = query.Order("created_at DESC")
 	query = query.Preload("OrderMeals").Preload("OrderMeals.Meal").Preload("Review")
 	if err := query.Find(&orders).Error; err != nil {
@@ -110,4 +111,8 @@ func (r *OrderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int)
 
 func (r *OrderRepositoryImpl) AddReview(review *models.Review) error {
 	return r.db.Create(review).Error
+}
+
+func (r *OrderRepositoryImpl) UpdateStatus(orderId, mealId uint, status models.OrderStatus) error {
+	return r.db.Model(&models.OrderMeal{}).Where("order_id = ? AND meal_id = ?", orderId, mealId).Update("status", status).Error
 }

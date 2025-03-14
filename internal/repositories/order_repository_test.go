@@ -493,6 +493,38 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 	})
 }
 
+func (s *OrderRepoTestSuite) TestUpdateStatus() {
+	s.SetupTest()
+	meal := CreateValidMeal()
+	err := s.db.Create(meal).Error
+	require.NoError(s.T(), err)
+
+	order := models.Order{
+		TableNo: 5,
+		Name:    "Customer Name",
+		Notes:   "Some notes",
+		OrderMeals: []models.OrderMeal{
+			{
+				MealID:   meal.ID,
+				Quantity: 2,
+			},
+		},
+	}
+
+	err = s.repo.Create(&order)
+	require.NoError(s.T(), err)
+
+	assert.Equal(s.T(), models.StatusPending, order.OrderMeals[0].Status)
+
+	s.repo.UpdateStatus(order.ID, order.OrderMeals[0].MealID, models.StatusDone)
+
+	var foundOrder models.Order
+	err = s.db.Preload("OrderMeals").First(&foundOrder, order.ID).Error
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), models.StatusDone, foundOrder.OrderMeals[0].Status)
+
+}
+
 func (s *OrderRepoTestSuite) TestGetAllOrders() {
 	s.SetupTest()
 
