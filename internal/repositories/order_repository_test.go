@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 	"testing"
+	"time"
 )
 
 func TestOrderRepoSuite(t *testing.T) {
@@ -101,6 +102,34 @@ func (s *OrderRepoTestSuite) TestCreate_InvalidOrders() {
 		assert.Error(s.T(), err, "Should reject order with invalid table number")
 
 	})
+
+	s.Run("CreatedAtSpecified", func() {
+		meal := CreateValidMeal()
+		err := s.db.Create(meal).Error
+		require.NoError(s.T(), err)
+
+		time1 := time.Now().Add(time.Hour * -24)
+
+		order := &models.Order{
+			TableNo: 1,
+			Name:    "Customer Name",
+			Notes:   "Some notes",
+			OrderMeals: []models.OrderMeal{
+				{
+					MealID:   meal.ID,
+					Quantity: 2,
+				},
+			},
+			CreatedAt: time1,
+		}
+
+		// Attempt to create the order
+		err = s.repo.Create(order)
+		assert.NoError(s.T(), err, "Should reject order with invalid table number")
+		assert.NotEqual(s.T(), order.CreatedAt, time1)
+
+	})
+
 	s.Run("Empty meals", func() {
 		order := &models.Order{
 			TableNo:    5,
@@ -462,4 +491,66 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 		assert.Equal(s.T(), firstReview.Rating, foundOrder.Review.Rating)
 		assert.Equal(s.T(), *firstReview.Comment, *foundOrder.Review.Comment)
 	})
+}
+
+func (s *OrderRepoTestSuite) TestGetAllOrders() {
+	s.SetupTest()
+
+	s.Run("No orders", func() {
+		orders, err := s.repo.GetOrders(time.Time{}, 0)
+		assert.NoError(s.T(), err)
+		assert.Empty(s.T(), orders)
+	})
+
+	meal := CreateValidMeal()
+	err := s.db.Create(meal).Error
+
+	s.Require().NoError(err)
+
+	var orders []models.Order
+	orderCount := 13
+
+	for i := 0; i < orderCount; i++ {
+		order := models.Order{
+			TableNo: 5,
+			Name:    "Customer Name",
+			Notes:   "Some notes",
+			OrderMeals: []models.OrderMeal{
+				{
+					MealID:   meal.ID,
+					Quantity: 2,
+				},
+			},
+		}
+		err = s.repo.Create(&order)
+		s.Require().NoError(err)
+		orders = append([]models.Order{order}, orders...)
+	}
+
+	s.Run("Page size bigger than total", func() {
+		fetchedOrders, err := s.repo.GetOrders(time.Time{}, 20)
+		assert.NoError(s.T(), err)
+		assert.Equal(s.T(), orderCount, len(orders))
+		for i := range fetchedOrders {
+			assert.Equal(s.T(), orders[i].ID, fetchedOrders[i].ID)
+		}
+	})
+
+	s.Run("Page size smaller than total", func() {
+
+		fetchedOrderCount := 0
+		lastTime := time.Time{}
+		pageSize := uint(5)
+		for fetchedOrderCount < orderCount {
+			fetchedOrders, err := s.repo.GetOrders(lastTime, pageSize)
+			assert.NoError(s.T(), err)
+			assert.Equal(s.T(), min(pageSize, uint(orderCount-fetchedOrderCount)), uint(len(fetchedOrders)))
+			for i := range fetchedOrders {
+				assert.Equal(s.T(), orders[fetchedOrderCount+i].ID, fetchedOrders[i].ID)
+			}
+			fetchedOrderCount += len(fetchedOrders)
+			lastTime = fetchedOrders[len(fetchedOrders)-1].CreatedAt
+		}
+	})
+
 }

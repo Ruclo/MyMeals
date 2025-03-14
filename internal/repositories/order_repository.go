@@ -50,12 +50,15 @@ func (r *OrderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*
 		query = query.Where("created_at < ?", olderThan)
 	}
 
-	if pageSize != 0 {
-		err := query.Limit(int(pageSize)).Find(&orders).Error
-		if err != nil {
-			return nil, err
-		}
+	if pageSize <= 0 {
+		pageSize = 10
 	}
+
+	err := query.Limit(int(pageSize)).Find(&orders).Error
+	if err != nil {
+		return nil, err
+	}
+	
 	query = query.Order("created_at DESC")
 	query = query.Preload("OrderMeals").Preload("OrderMeals.Meal").Preload("Review")
 	if err := query.Find(&orders).Error; err != nil {

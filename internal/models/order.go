@@ -64,6 +64,10 @@ func (o *Order) BeforeCreate(tx *gorm.DB) error {
 	if len(o.OrderMeals) == 0 {
 		return errors.New("order must have at least one meal")
 	}
+
+	if !o.CreatedAt.IsZero() {
+		o.CreatedAt = time.Time{}
+	}
 	return nil
 }
 
