@@ -10,17 +10,21 @@ import (
 
 type OrderRepository interface {
 	GetAllPendingOrders() ([]*models.Order, error)
-	GetOrders(olderThan time.Time, pageSize uint) ([]models.Order, error)
+	GetOrders(olderThan time.Time, pageSize uint) ([]*models.Order, error)
 	Create(order *models.Order) error
-	AddMealToOrder(orderID uint, meal *models.Meal) error
+	AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error)
 	PostReview(orderID uint, review *models.Review) error
 }
 
-type orderRepository struct {
+func NewOrderRepository(db *gorm.DB) *OrderRepositoryImpl {
+	return &OrderRepositoryImpl{db: db}
+}
+
+type OrderRepositoryImpl struct {
 	db *gorm.DB
 }
 
-func (r *orderRepository) GetAllPendingOrders() ([]*models.Order, error) {
+func (r *OrderRepositoryImpl) GetAllPendingOrders() ([]*models.Order, error) {
 	var orders []*models.Order
 
 	err := r.db.
@@ -37,8 +41,8 @@ func (r *orderRepository) GetAllPendingOrders() ([]*models.Order, error) {
 	return orders, nil
 }
 
-func (r *orderRepository) GetOrders(olderThan time.Time, pageSize uint) ([]models.Order, error) {
-	var orders []models.Order
+func (r *OrderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*models.Order, error) {
+	var orders []*models.Order
 
 	query := r.db.Model(&models.Order{})
 
@@ -60,11 +64,11 @@ func (r *orderRepository) GetOrders(olderThan time.Time, pageSize uint) ([]model
 	return orders, nil
 }
 
-func (r *orderRepository) Create(order *models.Order) error {
+func (r *OrderRepositoryImpl) Create(order *models.Order) error {
 	return r.db.Create(order).Error
 }
 
-func (r *orderRepository) AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error) {
+func (r *OrderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error) {
 	var existingOrderMeal models.OrderMeal
 
 	err := r.db.Where("order_id = ? AND meal_id = ?", orderID, mealID).First(&existingOrderMeal).Error
@@ -98,7 +102,7 @@ func (r *orderRepository) AddMealToOrder(orderID, mealID uint, quantity int) (*m
 
 }
 
-func (r *orderRepository) PostReview(orderID uint, review *models.Review) error {
+func (r *OrderRepositoryImpl) PostReview(orderID uint, review *models.Review) error {
 	var order models.Order
 
 	if err := r.db.First(&order, orderID).Error; err != nil {

@@ -50,13 +50,13 @@ func (s OrderStatus) Value() (driver.Value, error) {
 }
 
 type Order struct {
-	ID        uint   `gorm:"primaryKey;autoIncrement"`
-	TableNo   int    `gorm:"check:table_no >= 1"`
-	Name      string `gorm:"not null; check name <> ''"`
-	Notes     string `gorm:"not null"`
-	Meals     []Meal `gorm:"many2many:order_meals"`
-	CreatedAt time.Time
-	Review    *Review `gorm:"foreignKey:OrderID"`
+	ID         uint        `gorm:"primaryKey;autoIncrement"`
+	TableNo    int         `gorm:"check:table_no >= 1"`
+	Name       string      `gorm:"not null; check: name <> ''"`
+	Notes      string      `gorm:"not null"`
+	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID"`
+	CreatedAt  time.Time
+	Review     *Review `gorm:"foreignKey:OrderID"`
 }
 
 type OrderMeal struct {
@@ -64,4 +64,5 @@ type OrderMeal struct {
 	MealID   uint `gorm:"primaryKey"`
 	Quantity int  `gorm:"check:quantity >= 1"`
 	Status   OrderStatus
+	Meal     Meal `gorm:"foreignKey:MealID"`
 }

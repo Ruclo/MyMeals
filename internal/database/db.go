@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"github.com/Ruclo/MyMeals/internal/models"
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"log"
@@ -17,7 +18,10 @@ func getEnvOrExit(key string) string {
 	return value
 }
 
-func createConnection() *gorm.DB {
+func CreateConnection() *gorm.DB {
+	if err := godotenv.Load("../../.env"); err != nil {
+		log.Fatal("No .env file found")
+	}
 	host := getEnvOrExit("DB_HOST")
 	user := getEnvOrExit("DB_USER")
 	password := getEnvOrExit("DB_PASSWORD")
@@ -34,38 +38,25 @@ func createConnection() *gorm.DB {
 }
 
 func migrateSchema(db *gorm.DB) {
-	err := db.SetupJoinTable(&models.Order{}, "Meals", &models.OrderMeal{})
-	if err != nil {
-		log.Fatal("Setting up the join table for orders and meals failed: ", err)
-	}
-	err = db.AutoMigrate(&models.Meal{}, &models.Order{}, &models.StaffMember{}, &models.Review{})
+
+	err := db.AutoMigrate(&models.Meal{}, &models.Order{}, &models.StaffMember{}, &models.Review{}, &models.OrderMeal{})
 	if err != nil {
 		log.Fatal("Schema migration failed: ", err)
 	}
 }
 
-func wipeDB(db *gorm.DB) {
-	err := db.Migrator().DropTable(&models.OrderMeal{}, &models.Review{}, &models.Order{}, &models.Meal{}, &models.StaffMember{})
-	if err != nil {
-		log.Fatal("Failed to wipe the DB: ", err)
+func WipeDB(db *gorm.DB) {
+	if err := db.Exec("TRUNCATE TABLE order_meals, reviews, orders, meals, staff_members RESTART IDENTITY CASCADE").Error; err != nil {
+		log.Fatal("Failed to truncate tables: ", err)
 	}
+
 }
 
 func InitDB() *gorm.DB {
 	log.Println("Starting DB Initialization")
 
-	db := createConnection()
+	db := CreateConnection()
 	migrateSchema(db)
 
-	return db
-}
-
-func InitTestDB() *gorm.DB {
-	log.Println("Starting DB Initialization")
-	log.Println("Wiping DB")
-
-	db := createConnection()
-	wipeDB(db)
-	migrateSchema(db)
 	return db
 }
