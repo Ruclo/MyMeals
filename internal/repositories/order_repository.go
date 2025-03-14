@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"errors"
-	"fmt"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"gorm.io/gorm"
 	"time"
@@ -13,7 +12,7 @@ type OrderRepository interface {
 	GetOrders(olderThan time.Time, pageSize uint) ([]*models.Order, error)
 	Create(order *models.Order) error
 	AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error)
-	PostReview(orderID uint, review *models.Review) error
+	AddReview(review *models.Review) error
 }
 
 func NewOrderRepository(db *gorm.DB) *OrderRepositoryImpl {
@@ -31,7 +30,8 @@ func (r *OrderRepositoryImpl) GetAllPendingOrders() ([]*models.Order, error) {
 		Distinct("orders.*").
 		Joins("JOIN order_meals ON orders.id = order_meals.order_id").
 		Where("order_meals.status = ?", models.StatusPending).
-		Preload("Meals").
+		Preload("OrderMeals").
+		Preload("OrderMeals.Meal").
 		Find(&orders).Error
 
 	if err != nil {
@@ -57,7 +57,7 @@ func (r *OrderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*
 		}
 	}
 	query = query.Order("created_at DESC")
-	query = query.Preload("Meals").Preload("Meals.Meal").Preload("Review")
+	query = query.Preload("OrderMeals").Preload("OrderMeals.Meal").Preload("Review")
 	if err := query.Find(&orders).Error; err != nil {
 		return nil, err
 	}
@@ -65,7 +65,10 @@ func (r *OrderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*
 }
 
 func (r *OrderRepositoryImpl) Create(order *models.Order) error {
-	return r.db.Create(order).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		return tx.Create(order).Error
+	})
+
 }
 
 func (r *OrderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error) {
@@ -93,7 +96,7 @@ func (r *OrderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int)
 	}
 
 	var updatedOrder models.Order
-	if err = r.db.Preload("Meals").Preload("Meals.Meal").
+	if err = r.db.Preload("OrderMeals").
 		First(&updatedOrder, orderID).Error; err != nil {
 		return nil, err
 	}
@@ -102,16 +105,6 @@ func (r *OrderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int)
 
 }
 
-func (r *OrderRepositoryImpl) PostReview(orderID uint, review *models.Review) error {
-	var order models.Order
-
-	if err := r.db.First(&order, orderID).Error; err != nil {
-		return err
-	}
-
-	if order.Review != nil {
-		return fmt.Errorf("order %d already has a review", orderID)
-	}
-
+func (r *OrderRepositoryImpl) AddReview(review *models.Review) error {
 	return r.db.Create(review).Error
 }

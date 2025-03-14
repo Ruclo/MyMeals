@@ -4,15 +4,28 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"github.com/lib/pq"
+	"gorm.io/gorm"
 	"strings"
 )
 
 type Review struct {
-	ID        uint     `gorm:"primaryKey"`
-	OrderID   uint     `gorm:"unique; not null; constraint: OnDelete:CASCADE, OnUpdate:CASCADE; references:orders(ID)"`
-	Rating    int      `gorm:"check:rating >= 1 AND rating <= 5"`
-	Comment   string   `gorm:"not null; check:comment <> ''"`
-	PhotoURLs []string `gorm:"type:text[]; not null"`
+	ID        uint `gorm:"primaryKey"`
+	OrderID   uint `gorm:"unique; not null; constraint: OnDelete:CASCADE, OnUpdate:CASCADE; references:orders(ID)"`
+	Rating    int  `gorm:"check:rating >= 1 AND rating <= 5"`
+	Comment   *string
+	PhotoURLs pq.StringArray `gorm:"type:text[]; not null"`
+}
+
+func (r *Review) BeforeCreate(db *gorm.DB) error {
+	if r.PhotoURLs == nil {
+		r.PhotoURLs = pq.StringArray{}
+	}
+
+	if r.Comment != nil && len(strings.TrimSpace(*r.Comment)) == 0 {
+		r.Comment = nil
+	}
+	return nil
 }
 
 type PhotoURLs []string

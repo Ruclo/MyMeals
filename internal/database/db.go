@@ -54,7 +54,6 @@ func WipeDB(db *gorm.DB) {
 
 func InitDB() *gorm.DB {
 	log.Println("Starting DB Initialization")
-
 	db := CreateConnection()
 	migrateSchema(db)
 

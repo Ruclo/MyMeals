@@ -31,7 +31,7 @@ func (s *MealRepoTestSuite) SetupTest() {
 	database.WipeDB(s.db)
 }
 
-func createValidMeal() *models.Meal {
+func CreateValidMeal() *models.Meal {
 	return &models.Meal{
 		ID:          0, // Should be auto-assigned
 		Name:        "Test Pizza",
@@ -44,7 +44,7 @@ func createValidMeal() *models.Meal {
 
 func (s *MealRepoTestSuite) TestCreate_ValidMeal() {
 	s.SetupTest()
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 
 	err := s.repo.Create(meal)
 
@@ -69,7 +69,7 @@ func (s *MealRepoTestSuite) TestCreate_ValidMeal() {
 
 func (s *MealRepoTestSuite) TestCreate_NonZeroID() {
 	s.SetupTest()
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 	meal.ID = 42 // Non-zero ID
 
 	err := s.repo.Create(meal)
@@ -86,7 +86,7 @@ func (s *MealRepoTestSuite) TestCreate_NonZeroID() {
 func (s *MealRepoTestSuite) TestCreate_EmptyName() {
 	s.SetupTest()
 
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 	meal.Name = ""
 	err := s.repo.Create(meal)
 	assert.Error(s.T(), err, "Empty name should not be allowed")
@@ -94,7 +94,7 @@ func (s *MealRepoTestSuite) TestCreate_EmptyName() {
 
 func (s *MealRepoTestSuite) TestCreate_InvalidCategory() {
 	s.SetupTest()
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 	meal.Category = "RandomCategory" // Invalid category
 
 	// Act
@@ -106,7 +106,7 @@ func (s *MealRepoTestSuite) TestCreate_InvalidCategory() {
 
 func (s *MealRepoTestSuite) TestCreate_EmptyDescription() {
 	s.SetupTest()
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 	meal.Description = "" // Empty description
 
 	// Act
@@ -118,7 +118,7 @@ func (s *MealRepoTestSuite) TestCreate_EmptyDescription() {
 
 func (s *MealRepoTestSuite) TestCreate_EmptyImageURL() {
 	s.SetupTest()
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 	meal.ImageURL = "" // Empty URL
 
 	// Act
@@ -131,7 +131,7 @@ func (s *MealRepoTestSuite) TestCreate_EmptyImageURL() {
 
 func (s *MealRepoTestSuite) TestCreate_NegativePrice() {
 	s.SetupTest()
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 	meal.Price = decimal.NewFromFloat(-5.99)
 
 	// Act
@@ -145,7 +145,7 @@ func (s *MealRepoTestSuite) TestCreate_NegativePrice() {
 
 func (s *MealRepoTestSuite) TestUpdate_ValidMeal() {
 	s.SetupTest()
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 
 	err := s.repo.Create(meal)
 	require.NoError(s.T(), err)
@@ -178,7 +178,7 @@ func (s *MealRepoTestSuite) TestUpdate_ValidMeal() {
 func (s *MealRepoTestSuite) TestUpdate_NonExistentMeal() {
 	s.SetupTest()
 	// Arrange - create a meal with non-existent ID
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 	meal.ID = 9999 // ID that doesn't exist
 
 	// Act
@@ -190,7 +190,7 @@ func (s *MealRepoTestSuite) TestUpdate_NonExistentMeal() {
 
 func (s *MealRepoTestSuite) TestUpdate_EmptyName() {
 	s.SetupTest()
-	meal := createValidMeal()
+	meal := CreateValidMeal()
 	err := s.repo.Create(meal)
 	require.NoError(s.T(), err)
 
@@ -212,7 +212,7 @@ func (s *MealRepoTestSuite) TestGetAll_NoEntries() {
 
 func (s *MealRepoTestSuite) TestGetAll_WithEntries() {
 	s.SetupTest()
-	meals := []models.Meal{*createValidMeal(), *createValidMeal()}
+	meals := []models.Meal{*CreateValidMeal(), *CreateValidMeal()}
 
 	for _, meal := range meals {
 		err := s.repo.Create(&meal)

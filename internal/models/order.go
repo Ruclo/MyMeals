@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -52,17 +53,35 @@ func (s OrderStatus) Value() (driver.Value, error) {
 type Order struct {
 	ID         uint        `gorm:"primaryKey;autoIncrement"`
 	TableNo    int         `gorm:"check:table_no >= 1"`
-	Name       string      `gorm:"not null; check: name <> ''"`
+	Name       string      `gorm:"not null"`
 	Notes      string      `gorm:"not null"`
 	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID"`
 	CreatedAt  time.Time
 	Review     *Review `gorm:"foreignKey:OrderID"`
 }
 
+func (o *Order) BeforeCreate(tx *gorm.DB) error {
+	if len(o.OrderMeals) == 0 {
+		return errors.New("order must have at least one meal")
+	}
+	return nil
+}
+
 type OrderMeal struct {
-	OrderID  uint `gorm:"primaryKey"`
-	MealID   uint `gorm:"primaryKey"`
-	Quantity int  `gorm:"check:quantity >= 1"`
+	OrderID  uint   `gorm:"primaryKey"`
+	MealID   uint   `gorm:"primaryKey"`
+	MealName string `gorm:"-"`
+	Quantity int    `gorm:"check:quantity >= 1"`
 	Status   OrderStatus
-	Meal     Meal `gorm:"foreignKey:MealID"`
+	Meal     *Meal `gorm:"foreignKey:MealID"`
+}
+
+func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {
+	om.Status = StatusPending
+	return nil
+}
+
+func (om *OrderMeal) AfterFind() error {
+	om.MealName = om.Meal.Name
+	return nil
 }
