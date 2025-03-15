@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type MealCategory string
@@ -60,4 +61,5 @@ type Meal struct {
 	Description string          `gorm:"not null; check: description <> ''"`
 	ImageURL    string          `gorm:"not null; check: image_url <> ''"`
 	Price       decimal.Decimal `gorm:"type:numeric(10,2); check: price > 0"`
+	DeletedAt   gorm.DeletedAt
 }

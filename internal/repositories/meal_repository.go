@@ -10,6 +10,7 @@ type MealRepository interface {
 	GetAll() ([]models.Meal, error)
 	Create(meal *models.Meal) error
 	Update(meal *models.Meal) error
+	Delete(meal *models.Meal) error
 }
 
 func NewMealRepository(db *gorm.DB) *MealRepositoryImpl {
@@ -45,4 +46,8 @@ func (r *MealRepositoryImpl) Update(meal *models.Meal) error {
 	}
 
 	return nil
+}
+
+func (r *MealRepositoryImpl) Delete(meal *models.Meal) error {
+	return r.db.Delete(meal).Error
 }

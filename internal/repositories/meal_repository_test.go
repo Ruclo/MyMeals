@@ -223,3 +223,38 @@ func (s *MealRepoTestSuite) TestGetAll_WithEntries() {
 	require.NoError(s.T(), err)
 	assert.Equal(s.T(), len(meals), len(retrievedMeals), "Number of meals should match")
 }
+
+func (s *MealRepoTestSuite) TestDelete() {
+	s.SetupTest()
+	meal := CreateValidMeal()
+	err := s.repo.Create(meal)
+	require.NoError(s.T(), err)
+
+	order := &models.Order{
+		TableNo: 5,
+		Name:    "Customer Name",
+		Notes:   "Some notes",
+		OrderMeals: []models.OrderMeal{
+			{
+				MealID:   meal.ID,
+				Quantity: 2,
+			},
+		},
+	}
+
+	err = s.db.Create(order).Error
+	require.NoError(s.T(), err)
+
+	id := meal.ID
+	err = s.repo.Delete(meal)
+
+	assert.NoError(s.T(), err)
+	var found models.Meal
+	result := s.db.First(&found, meal.ID)
+	assert.Error(s.T(), result.Error)
+
+	var foundOrder models.Order
+	result = s.db.Model(&models.Order{}).Preload("OrderMeals").First(&foundOrder, order.ID)
+	assert.NoError(s.T(), result.Error)
+	assert.Equal(s.T(), id, foundOrder.OrderMeals[0].MealID)
+}

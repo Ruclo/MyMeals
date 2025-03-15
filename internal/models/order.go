@@ -86,6 +86,8 @@ func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (om *OrderMeal) AfterFind(db *gorm.DB) error {
-	om.MealName = om.Meal.Name
+	if om.Meal != nil {
+		om.MealName = om.Meal.Name
+	}
 	return nil
 }
