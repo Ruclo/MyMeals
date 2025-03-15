@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+const (
+	CUSTOMER_JWT_EXPIRATION_TIME = 4 * time.Hour
+	STAFF_JWT_EXPIRATION_TIME    = 18 * time.Hour
+)
+
 // StaffClaims represents the claims in a staff JWT token
 type StaffClaims struct {
 	Username string `json:"username"`
@@ -25,7 +30,7 @@ func GenerateStaffToken(username, role string) (string, error) {
 		Username: username,
 		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(18 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(STAFF_JWT_EXPIRATION_TIME)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "mymeals-api",
@@ -37,12 +42,12 @@ func GenerateStaffToken(username, role string) (string, error) {
 	return token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
 }
 
-// GenerateCustomerToken generates a JWT token for anonymous users
+// GenerateCustomerToken generates a JWT token for customers
 func GenerateCustomerToken(orderID string) (string, error) {
 	claims := CustomerClaims{
 		OrderID: orderID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(18 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(CUSTOMER_JWT_EXPIRATION_TIME)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "mymeals-api",
@@ -52,42 +57,4 @@ func GenerateCustomerToken(orderID string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
-}
-
-// ValidateStaffToken validates a staff JWT token and returns its claims
-func ValidateStaffToken(tokenString string) (*StaffClaims, error) {
-	claims := &StaffClaims{}
-
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(config.ConfigInstance.JWTSecret()), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if !token.Valid {
-		return nil, jwt.ErrSignatureInvalid
-	}
-
-	return claims, nil
-}
-
-// ValidateAnonymousToken validates an anonymous JWT token and returns its claims
-func ValidateAnonymousToken(tokenString string) (*CustomerClaims, error) {
-	claims := &CustomerClaims{}
-
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(config.ConfigInstance.JWTSecret()), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if !token.Valid {
-		return nil, jwt.ErrSignatureInvalid
-	}
-
-	return claims, nil
 }
