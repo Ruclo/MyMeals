@@ -55,7 +55,19 @@ func (mh *MealsHandler) PutMeal() gin.HandlerFunc {
 			return
 		}
 
-		err := mh.mealRepository.Update(&meal)
+		id := c.Param("mealID")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing id parameter"})
+			return
+		}
+
+		idUint, err := strconv.ParseUint(id, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id parameter"})
+		}
+		meal.ID = uint(idUint)
+
+		err = mh.mealRepository.Update(&meal)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update meal"})
@@ -68,7 +80,7 @@ func (mh *MealsHandler) PutMeal() gin.HandlerFunc {
 
 func (mh *MealsHandler) DeleteMeal() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.Param("id")
+		id := c.Param("mealID")
 		if id == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing id parameter"})
 			return

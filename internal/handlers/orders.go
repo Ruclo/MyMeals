@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/gin-gonic/gin"
@@ -84,7 +85,7 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 
 func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		orderIdStr := c.Query("orderID")
+		orderIdStr := c.Param("orderID")
 		if orderIdStr == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing orderID parameter"})
 			return
@@ -114,7 +115,7 @@ func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 
 func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		orderIdStr := c.Query("orderID")
+		orderIdStr := c.Param("orderID")
 		if orderIdStr == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing orderID parameter"})
 			return
@@ -136,5 +137,45 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 		}
 
 		c.Status(http.StatusCreated)
+	}
+}
+
+func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		orderIDStr := c.Param("orderID")
+		if orderIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing orderID parameter"})
+			return
+		}
+		orderID, err := strconv.ParseUint(orderIDStr, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID parameter"})
+		}
+
+		mealIDStr := c.Param("mealID")
+		if mealIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing mealID parameter"})
+			return
+		}
+		mealID, err := strconv.ParseUint(mealIDStr, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid mealID parameter"})
+		}
+
+		var updateStatusRequest dtos.UpdateStatusRequest
+
+		err = c.ShouldBindJSON(&updateStatusRequest)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		err = oh.orderRepository.UpdateStatus(uint(orderID), uint(mealID), updateStatusRequest.Status)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
+			//TODO: Might be a wrong request
+		}
+
+		c.Status(http.StatusOK)
 	}
 }

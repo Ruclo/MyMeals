@@ -4,13 +4,14 @@ import (
 	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/database"
+	"github.com/Ruclo/MyMeals/internal/events"
 	"github.com/Ruclo/MyMeals/internal/handlers"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/gin-gonic/gin"
 )
 
-//TODO: sse, update status endpoint
+//TODO: sse
 
 func main() {
 	config.InitConfig()
@@ -27,6 +28,8 @@ func main() {
 	ordersHandler := handlers.NewOrdersHandler(orderRepo)
 	usersHandler := handlers.NewUsersHandler(userRepo)
 
+	orderEvents := events.NewServer()
+
 	// Public routes
 	r.GET("/api/meals", mealsHandler.GetMeals())
 	r.POST("/api/login", usersHandler.Login())
@@ -41,6 +44,8 @@ func main() {
 	{
 		staffRoutes.GET("/orders/pending", ordersHandler.GetPendingOrders())
 		staffRoutes.PUT("/account/password", usersHandler.ChangePassword())
+		staffRoutes.PUT("/orders/:orderID/items/:mealID/status", ordersHandler.UpdateStatus())
+		staffRoutes.GET("/events/orders", orderEvents.Handler()...)
 	}
 
 	// AdminRole only access
@@ -48,8 +53,8 @@ func main() {
 	adminRoutes.Use(auth.RequireAnyRole(models.AdminRole))
 	{
 		adminRoutes.POST("/meals", mealsHandler.PostMeal())
-		adminRoutes.PUT("/meals/:id", mealsHandler.PutMeal())
-		adminRoutes.DELETE("/meals/:id", mealsHandler.DeleteMeal())
+		adminRoutes.PUT("/meals/:mealID", mealsHandler.PutMeal())
+		adminRoutes.DELETE("/meals/:mealID", mealsHandler.DeleteMeal())
 		adminRoutes.POST("/users", usersHandler.PostUser())
 	}
 
