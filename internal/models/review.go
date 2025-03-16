@@ -10,11 +10,11 @@ import (
 )
 
 type Review struct {
-	ID        uint `gorm:"primaryKey"`
-	OrderID   uint `gorm:"unique; not null; constraint: OnDelete:CASCADE, OnUpdate:CASCADE; references:orders(ID)"`
-	Rating    int  `gorm:"check:rating >= 1 AND rating <= 5"`
-	Comment   *string
-	PhotoURLs pq.StringArray `gorm:"type:text[]; not null"`
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	OrderID   uint           `gorm:"unique; not null; constraint: OnDelete:CASCADE, OnUpdate:CASCADE; references:orders(ID)" json:"-"`
+	Rating    int            `gorm:"check:rating >= 1 AND rating <= 5" json:"rating" binding:"required"`
+	Comment   *string        `json:"comment"`
+	PhotoURLs pq.StringArray `gorm:"type:text[]; not null" json:"photo_urls"`
 }
 
 func (r *Review) BeforeCreate(db *gorm.DB) error {

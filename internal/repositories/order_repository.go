@@ -16,15 +16,15 @@ type OrderRepository interface {
 	UpdateStatus(orderId, mealID uint, status models.OrderStatus) error
 }
 
-func NewOrderRepository(db *gorm.DB) *OrderRepositoryImpl {
-	return &OrderRepositoryImpl{db: db}
+func NewOrderRepository(db *gorm.DB) OrderRepository {
+	return &orderRepositoryImpl{db: db}
 }
 
-type OrderRepositoryImpl struct {
+type orderRepositoryImpl struct {
 	db *gorm.DB
 }
 
-func (r *OrderRepositoryImpl) GetAllPendingOrders() ([]*models.Order, error) {
+func (r *orderRepositoryImpl) GetAllPendingOrders() ([]*models.Order, error) {
 	var orders []*models.Order
 
 	err := r.db.
@@ -42,7 +42,7 @@ func (r *OrderRepositoryImpl) GetAllPendingOrders() ([]*models.Order, error) {
 	return orders, nil
 }
 
-func (r *OrderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*models.Order, error) {
+func (r *orderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*models.Order, error) {
 	var orders []*models.Order
 
 	query := r.db.Model(&models.Order{})
@@ -68,14 +68,14 @@ func (r *OrderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*
 	return orders, nil
 }
 
-func (r *OrderRepositoryImpl) Create(order *models.Order) error {
+func (r *orderRepositoryImpl) Create(order *models.Order) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		return tx.Create(order).Error
 	})
 
 }
 
-func (r *OrderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error) {
+func (r *orderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error) {
 	var existingOrderMeal models.OrderMeal
 
 	err := r.db.Where("order_id = ? AND meal_id = ?", orderID, mealID).First(&existingOrderMeal).Error
@@ -109,10 +109,10 @@ func (r *OrderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int)
 
 }
 
-func (r *OrderRepositoryImpl) AddReview(review *models.Review) error {
+func (r *orderRepositoryImpl) AddReview(review *models.Review) error {
 	return r.db.Create(review).Error
 }
 
-func (r *OrderRepositoryImpl) UpdateStatus(orderId, mealId uint, status models.OrderStatus) error {
+func (r *orderRepositoryImpl) UpdateStatus(orderId, mealId uint, status models.OrderStatus) error {
 	return r.db.Model(&models.OrderMeal{}).Where("order_id = ? AND meal_id = ?", orderId, mealId).Update("status", status).Error
 }

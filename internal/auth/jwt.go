@@ -2,6 +2,7 @@ package auth
 
 import (
 	"github.com/Ruclo/MyMeals/internal/config"
+	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 	"time"
 )
@@ -25,10 +26,10 @@ type CustomerClaims struct {
 }
 
 // GenerateStaffToken generates a JWT token for staff members
-func GenerateStaffToken(username, role string) (string, error) {
+func GenerateStaffToken(username string, role models.Role) (string, error) {
 	claims := StaffClaims{
 		Username: username,
-		Role:     role,
+		Role:     string(role),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(STAFF_JWT_EXPIRATION_TIME)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -56,5 +57,5 @@ func GenerateCustomerToken(orderID string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
+	return token.SignedString(config.ConfigInstance.JWTSecret())
 }

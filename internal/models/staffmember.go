@@ -9,13 +9,13 @@ import (
 type Role string
 
 const (
-	Admin        Role = "Admin"
-	RegularStaff Role = "Regular Staff"
+	AdminRole        Role = "AdminRole"
+	RegularStaffRole Role = "Regular Staff"
 )
 
 func (m Role) Valid() error {
 	switch m {
-	case Admin, RegularStaff:
+	case AdminRole, RegularStaffRole:
 		return nil
 	default:
 		return errors.New(fmt.Sprintf("Invalid role %s", m))
@@ -49,7 +49,7 @@ func (m Role) Value() (driver.Value, error) {
 }
 
 type StaffMember struct {
-	Username string `gorm:"primaryKey"`
-	Password string `gorm:"not null"`
-	Role     Role   `gorm:"not null; default: 'Regular Staff'"`
+	Username string `gorm:"primaryKey" json:"username" binding:"required"`
+	Password string `gorm:"not null" json:"password" binding:"required,min=8"`
+	Role     Role   `gorm:"not null; default: 'Regular Staff'" json:"-"`
 }

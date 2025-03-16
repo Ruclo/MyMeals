@@ -55,11 +55,11 @@ func (c MealCategory) Value() (driver.Value, error) {
 }
 
 type Meal struct {
-	ID          uint            `gorm:"primaryKey;autoIncrement"`
-	Name        string          `gorm:"not null; check: name <> ''"`
-	Category    MealCategory    `gorm:"not null"`
-	Description string          `gorm:"not null; check: description <> ''"`
-	ImageURL    string          `gorm:"not null; check: image_url <> ''"`
-	Price       decimal.Decimal `gorm:"type:numeric(10,2); check: price > 0"`
+	ID          uint            `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name        string          `gorm:"not null; check: name <> ''" json:"name" binding:"required"`
+	Category    MealCategory    `gorm:"not null" json:"category" binding:"required"`
+	Description string          `gorm:"not null; check: description <> ''" json:"description" binding:"required"`
+	ImageURL    string          `gorm:"not null; check: image_url <> ''" json:"image_url" binding:"required"`
+	Price       decimal.Decimal `gorm:"type:numeric(10,2); check: price > 0" json:"price" binding:"required"`
 	DeletedAt   gorm.DeletedAt
 }

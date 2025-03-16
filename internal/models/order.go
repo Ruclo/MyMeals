@@ -51,13 +51,13 @@ func (s OrderStatus) Value() (driver.Value, error) {
 }
 
 type Order struct {
-	ID         uint        `gorm:"primaryKey;autoIncrement"`
-	TableNo    int         `gorm:"check:table_no >= 1"`
-	Name       string      `gorm:"not null"`
-	Notes      string      `gorm:"not null"`
-	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID"`
-	CreatedAt  time.Time
-	Review     *Review `gorm:"foreignKey:OrderID"`
+	ID         uint        `gorm:"primaryKey;autoIncrement" json:"id,omitempty"`
+	TableNo    int         `gorm:"check:table_no >= 1" json:"table_no"`
+	Name       string      `gorm:"not null" json:"name"`
+	Notes      string      `gorm:"not null" json:"notes"`
+	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID" json:"order_meals"`
+	CreatedAt  time.Time   `json:"-"`
+	Review     *Review     `gorm:"foreignKey:OrderID" json:"review,omitempty"`
 }
 
 func (o *Order) BeforeCreate(tx *gorm.DB) error {
@@ -72,12 +72,12 @@ func (o *Order) BeforeCreate(tx *gorm.DB) error {
 }
 
 type OrderMeal struct {
-	OrderID  uint   `gorm:"primaryKey"`
-	MealID   uint   `gorm:"primaryKey"`
-	MealName string `gorm:"-"`
-	Quantity int    `gorm:"check:quantity >= 1"`
-	Status   OrderStatus
-	Meal     *Meal `gorm:"foreignKey:MealID"`
+	OrderID  uint        `gorm:"primaryKey" json:"order_id"`
+	MealID   uint        `gorm:"primaryKey" json:"meal_id" binding:"required"`
+	MealName string      `gorm:"-" json:"meal_name"`
+	Quantity int         `gorm:"check:quantity >= 1" json:"quantity" binding:"required"`
+	Status   OrderStatus `json:"status"`
+	Meal     *Meal       `gorm:"foreignKey:MealID" json:"-"`
 }
 
 func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {

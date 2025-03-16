@@ -65,22 +65,31 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// RequireRole creates middleware that checks if the user has a specific role
-func RequireRole(role models.Role) gin.HandlerFunc {
+// RequireAnyRole creates middleware that checks if the user has any of the speciefied roles
+func RequireAnyRole(roles ...models.Role) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenType, exists := c.Get("tokenType")
+
 		if !exists || tokenType != "staff" {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Staff access required"})
 			return
 		}
 
 		userRole, exists := c.Get("role")
-		if !exists || userRole.(models.Role) != role {
+		if !exists {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 			return
 		}
 
-		c.Next()
+		for role := range roles {
+			if userRole == role {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		return
 	}
 }
 

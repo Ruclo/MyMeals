@@ -13,15 +13,15 @@ type MealRepository interface {
 	Delete(meal *models.Meal) error
 }
 
-func NewMealRepository(db *gorm.DB) *MealRepositoryImpl {
-	return &MealRepositoryImpl{db: db}
+func NewMealRepository(db *gorm.DB) MealRepository {
+	return &mealRepositoryImpl{db: db}
 }
 
-type MealRepositoryImpl struct {
+type mealRepositoryImpl struct {
 	db *gorm.DB
 }
 
-func (r *MealRepositoryImpl) GetAll() ([]models.Meal, error) {
+func (r *mealRepositoryImpl) GetAll() ([]models.Meal, error) {
 	var meals []models.Meal
 
 	if err := r.db.Find(&meals).Error; err != nil {
@@ -31,11 +31,11 @@ func (r *MealRepositoryImpl) GetAll() ([]models.Meal, error) {
 	return meals, nil
 }
 
-func (r *MealRepositoryImpl) Create(meal *models.Meal) error {
+func (r *mealRepositoryImpl) Create(meal *models.Meal) error {
 	return r.db.Create(meal).Error
 }
 
-func (r *MealRepositoryImpl) Update(meal *models.Meal) error {
+func (r *mealRepositoryImpl) Update(meal *models.Meal) error {
 	result := r.db.Model(meal).Select("*").Updates(meal)
 	if result.Error != nil {
 		return result.Error
@@ -48,6 +48,6 @@ func (r *MealRepositoryImpl) Update(meal *models.Meal) error {
 	return nil
 }
 
-func (r *MealRepositoryImpl) Delete(meal *models.Meal) error {
+func (r *mealRepositoryImpl) Delete(meal *models.Meal) error {
 	return r.db.Delete(meal).Error
 }
