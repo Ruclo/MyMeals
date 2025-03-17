@@ -1,6 +1,7 @@
 package events
 
 import (
+	"fmt"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/gin-gonic/gin"
 	"io"
@@ -37,6 +38,7 @@ func (events *OrderEvents) listen() {
 
 		// Broadcast message to client
 		case order := <-events.Message:
+			log.Printf("Broadcasting message to %d clients", len(events.TotalClients))
 			for clientMessageChan := range events.TotalClients {
 				clientMessageChan <- order
 			}
@@ -97,10 +99,15 @@ func headersMiddleware(c *gin.Context) {
 func handler(c *gin.Context) {
 	clientChan := c.MustGet("clientChan").(ClientChan)
 	c.Stream(func(w io.Writer) bool {
+		fmt.Println("sending")
 		if order, ok := <-clientChan; ok {
-			c.SSEvent("order", order)
+			fmt.Println("ok")
+			c.SSEvent("message", order)
+			fmt.Println(order)
+			c.Writer.Flush()
 			return true
 		}
+
 		return false
 	})
 }

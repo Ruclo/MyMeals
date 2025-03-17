@@ -11,29 +11,37 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//TODO: sse event dispatching, obrazok, maybe cookies instead of header?, orders handler
+//TODO: sse event dispatching, obrazok, maybe cookies instead of header?
 
 func main() {
 	config.InitConfig()
 
 	db := database.InitDB()
-
-	r := gin.Default()
+	orderEvents := events.NewServer()
 
 	mealRepo := repositories.NewMealRepository(db)
 	orderRepo := repositories.NewOrderRepository(db)
 	userRepo := repositories.NewUserRepository(db)
+	broadcastingOrderRepo := repositories.NewBroadcastingOrderRepository(orderRepo, orderEvents.Message)
 
 	mealsHandler := handlers.NewMealsHandler(mealRepo)
-	ordersHandler := handlers.NewOrdersHandler(orderRepo)
+	ordersHandler := handlers.NewOrdersHandler(broadcastingOrderRepo)
 	usersHandler := handlers.NewUsersHandler(userRepo)
 
-	orderEvents := events.NewServer()
-
+	r := gin.Default()
 	// Public routes
+	r.LoadHTMLGlob("templates/*")
+
+	// Route to serve the HTML file
+	r.GET("/", func(c *gin.Context) {
+		c.HTML(200, "index.html", gin.H{
+			"title": "MyMeals",
+		})
+	})
 	r.GET("/api/meals", mealsHandler.GetMeals())
 	r.POST("/api/login", usersHandler.Login())
 	r.POST("/api/orders", ordersHandler.PostOrder())
+	r.GET("/api/events/orders", orderEvents.Handler()...)
 	authorized := r.Group("/api")
 	authorized.Use(auth.AuthMiddleware())
 
@@ -44,7 +52,7 @@ func main() {
 		staffRoutes.GET("/orders/pending", ordersHandler.GetPendingOrders())
 		staffRoutes.PUT("/account/password", usersHandler.ChangePassword())
 		staffRoutes.PUT("/orders/:orderID/items/:mealID/status", ordersHandler.UpdateStatus())
-		staffRoutes.GET("/events/orders", orderEvents.Handler()...)
+		//staffRoutes.GET("/events/orders", orderEvents.Handler()...)
 	}
 
 	// AdminRole only access
@@ -54,7 +62,8 @@ func main() {
 		adminRoutes.POST("/meals", mealsHandler.PostMeal())
 		adminRoutes.PUT("/meals/:mealID", mealsHandler.PutMeal())
 		adminRoutes.DELETE("/meals/:mealID", mealsHandler.DeleteMeal())
-		adminRoutes.POST("/users", usersHandler.PostUser())
+		//adminRoutes.POST("/users", usersHandler.PostUser())
+		adminRoutes.GET("/orders", ordersHandler.GetOrders())
 	}
 
 	// Order Creator access only

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/models"
@@ -30,7 +31,7 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 
 		olderThanStr := c.Query("olderThan")
 		olderThan := time.Time{}
-
+		fmt.Println(olderThanStr)
 		if olderThanStr != "" {
 			olderThan, err = time.Parse(time.RFC3339, olderThanStr)
 			if err != nil {
@@ -105,6 +106,7 @@ func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 		orderId, err := strconv.ParseUint(orderIdStr, 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID parameter"})
+			return
 		}
 
 		var orderItem models.OrderMeal
@@ -118,6 +120,7 @@ func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 		order, err := oh.orderRepository.AddMealToOrder(uint(orderId), orderItem.MealID, orderItem.Quantity)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add meal to order"})
+			return
 		}
 
 		// StatusCreated?
@@ -136,6 +139,7 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 		orderId, err := strconv.ParseUint(orderIdStr, 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID parameter"})
+			return
 		}
 		var review models.Review
 		err = c.ShouldBindJSON(&review)
@@ -162,6 +166,7 @@ func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 		orderID, err := strconv.ParseUint(orderIDStr, 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID parameter"})
+			return
 		}
 
 		mealIDStr := c.Param("mealID")
@@ -172,6 +177,7 @@ func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 		mealID, err := strconv.ParseUint(mealIDStr, 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid mealID parameter"})
+			return
 		}
 
 		var updateStatusRequest dtos.UpdateStatusRequest
@@ -182,12 +188,13 @@ func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 			return
 		}
 
-		err = oh.orderRepository.UpdateStatus(uint(orderID), uint(mealID), updateStatusRequest.Status)
+		order, err := oh.orderRepository.UpdateStatus(uint(orderID), uint(mealID), updateStatusRequest.Status)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
 			//TODO: Might be a wrong request
+			return
 		}
 
-		c.Status(http.StatusOK)
+		c.JSON(http.StatusOK, order)
 	}
 }

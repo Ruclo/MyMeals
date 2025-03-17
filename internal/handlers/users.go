@@ -71,7 +71,7 @@ func (uh *UsersHandler) PostUser() gin.HandlerFunc {
 		}
 
 		user.Password = string(hashedPassword)
-
+		user.Role = models.AdminRole
 		err = uh.userRepository.Create(&user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})

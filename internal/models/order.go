@@ -56,7 +56,7 @@ type Order struct {
 	Name       string      `gorm:"not null" json:"name" binding:"required"`
 	Notes      string      `gorm:"not null" json:"notes"`
 	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID" json:"order_meals" binding:"required"`
-	CreatedAt  time.Time   `json:"-"`
+	CreatedAt  time.Time   `json:"created_at"`
 	Review     *Review     `gorm:"foreignKey:OrderID" json:"review,omitempty"`
 }
 
@@ -77,7 +77,7 @@ type OrderMeal struct {
 	MealName string      `gorm:"-" json:"meal_name"`
 	Quantity int         `gorm:"check:quantity >= 1" json:"quantity" binding:"required"`
 	Status   OrderStatus `json:"status"`
-	Meal     *Meal       `gorm:"foreignKey:MealID" json:"-"`
+	Meal     *Meal       `gorm:"foreignKey:MealID; preload:true" json:"-"`
 }
 
 func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {
@@ -86,8 +86,14 @@ func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (om *OrderMeal) AfterFind(db *gorm.DB) error {
-	if om.Meal != nil {
-		om.MealName = om.Meal.Name
+	fmt.Println("preloading")
+	fmt.Println(om.Meal)
+	if om.Meal == nil {
+		if err := db.First(&om.Meal, om.MealID); err != nil {
+			return errors.New("nvm zjedz sa")
+		}
 	}
+
+	om.MealName = om.Meal.Name
 	return nil
 }
