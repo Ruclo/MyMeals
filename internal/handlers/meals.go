@@ -41,6 +41,8 @@ func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create meal"})
+			//violations
+			return
 		}
 
 		c.JSON(http.StatusCreated, meal)
@@ -72,6 +74,7 @@ func (mh *MealsHandler) PutMeal() gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update meal"})
 			//TODO: Check Invalid Request
+			return
 		}
 
 		c.JSON(http.StatusOK, meal)

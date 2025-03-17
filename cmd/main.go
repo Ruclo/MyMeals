@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//TODO: sse
+//TODO: sse event dispatching, obrazok, maybe cookies instead of header?, orders handler
 
 func main() {
 	config.InitConfig()
@@ -34,7 +34,6 @@ func main() {
 	r.GET("/api/meals", mealsHandler.GetMeals())
 	r.POST("/api/login", usersHandler.Login())
 	r.POST("/api/orders", ordersHandler.PostOrder())
-
 	authorized := r.Group("/api")
 	authorized.Use(auth.AuthMiddleware())
 

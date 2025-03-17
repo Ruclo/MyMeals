@@ -4,18 +4,26 @@ import (
 	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/golang-jwt/jwt/v5"
+	"strconv"
 	"time"
 )
 
 const (
-	CUSTOMER_JWT_EXPIRATION_TIME = 4 * time.Hour
-	STAFF_JWT_EXPIRATION_TIME    = 18 * time.Hour
+	CustomerJwtExpirationTime = 4 * time.Hour
+	StaffJwtExpirationTime    = 18 * time.Hour
+)
+
+type JWTType string
+
+const (
+	StaffJWT    JWTType = "staff"
+	CustomerJWT JWTType = "customer"
 )
 
 // StaffClaims represents the claims in a staff JWT token
 type StaffClaims struct {
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	Username string      `json:"username"`
+	Role     models.Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -29,9 +37,9 @@ type CustomerClaims struct {
 func GenerateStaffToken(username string, role models.Role) (string, error) {
 	claims := StaffClaims{
 		Username: username,
-		Role:     string(role),
+		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(STAFF_JWT_EXPIRATION_TIME)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(StaffJwtExpirationTime)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "mymeals-api",
@@ -40,15 +48,16 @@ func GenerateStaffToken(username string, role models.Role) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["typ"] = StaffJWT
 	return token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
 }
 
 // GenerateCustomerToken generates a JWT token for customers
-func GenerateCustomerToken(orderID string) (string, error) {
+func GenerateCustomerToken(orderID uint) (string, error) {
 	claims := CustomerClaims{
-		OrderID: orderID,
+		OrderID: strconv.FormatUint(uint64(orderID), 10),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(CUSTOMER_JWT_EXPIRATION_TIME)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(CustomerJwtExpirationTime)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "mymeals-api",
@@ -57,5 +66,6 @@ func GenerateCustomerToken(orderID string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["typ"] = CustomerJWT
 	return token.SignedString(config.ConfigInstance.JWTSecret())
 }

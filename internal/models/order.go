@@ -51,11 +51,11 @@ func (s OrderStatus) Value() (driver.Value, error) {
 }
 
 type Order struct {
-	ID         uint        `gorm:"primaryKey;autoIncrement" json:"id,omitempty"`
-	TableNo    int         `gorm:"check:table_no >= 1" json:"table_no"`
-	Name       string      `gorm:"not null" json:"name"`
+	ID         uint        `gorm:"primaryKey;autoIncrement" json:"id"`
+	TableNo    int         `gorm:"check:table_no >= 1" json:"table_no" binding:"required"`
+	Name       string      `gorm:"not null" json:"name" binding:"required"`
 	Notes      string      `gorm:"not null" json:"notes"`
-	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID" json:"order_meals"`
+	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID" json:"order_meals" binding:"required"`
 	CreatedAt  time.Time   `json:"-"`
 	Review     *Review     `gorm:"foreignKey:OrderID" json:"review,omitempty"`
 }

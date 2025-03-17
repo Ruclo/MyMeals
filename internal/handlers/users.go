@@ -33,6 +33,7 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+			return
 			//TODO: User doesnt exist
 		}
 
@@ -40,11 +41,13 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
 		}
 
 		jwt, err := auth.GenerateStaffToken(foundUser.Username, foundUser.Role)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"token": jwt})
@@ -90,10 +93,17 @@ func (uh *UsersHandler) ChangePassword() gin.HandlerFunc {
 			return
 		}
 
-		username, exists := c.Get("username")
+		username := c.MustGet("username")
 
-		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get username"})
+		user, err := uh.userRepository.GetByUsername(username.(string))
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+			return
+		}
+		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(changePasswordRequest.OldPassword))
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
 		}
 

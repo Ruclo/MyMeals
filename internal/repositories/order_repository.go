@@ -70,7 +70,16 @@ func (r *orderRepositoryImpl) GetOrders(olderThan time.Time, pageSize uint) ([]*
 
 func (r *orderRepositoryImpl) Create(order *models.Order) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		return tx.Create(order).Error
+		err := tx.Create(order).Error
+		if err != nil {
+			return err
+		}
+
+		err = tx.Preload("OrderMeals").Preload("OrderMeals.Meal").First(order, order.ID).Error
+		if err != nil {
+			return err
+		}
+		return nil
 	})
 
 }

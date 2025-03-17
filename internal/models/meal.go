@@ -61,5 +61,5 @@ type Meal struct {
 	Description string          `gorm:"not null; check: description <> ''" json:"description" binding:"required"`
 	ImageURL    string          `gorm:"not null; check: image_url <> ''" json:"image_url" binding:"required"`
 	Price       decimal.Decimal `gorm:"type:numeric(10,2); check: price > 0" json:"price" binding:"required"`
-	DeletedAt   gorm.DeletedAt
+	DeletedAt   gorm.DeletedAt  `json:"-"`
 }

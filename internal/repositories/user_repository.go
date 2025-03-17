@@ -22,10 +22,11 @@ type userRepositoryImpl struct {
 func (r *userRepositoryImpl) GetByUsername(username string) (*models.StaffMember, error) {
 	var user models.StaffMember
 	err := r.db.Where("username = ?", username).First(&user).Error
+
 	if err != nil {
-		return &user, nil
+		return nil, err
 	}
-	return nil, err
+	return &user, nil
 }
 
 func (r *userRepositoryImpl) Create(user *models.StaffMember) error {

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/joho/godotenv"
 	"log"
 	"os"
 )
@@ -41,13 +42,18 @@ func (c *Config) JWTSecret() []byte {
 }
 
 func InitConfig() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	ConfigInstance = Config{}
 	ConfigInstance.dbHost = getEnvOrExit("DB_HOST")
 	ConfigInstance.dbUser = getEnvOrExit("DB_USER")
 	ConfigInstance.dbPassword = getEnvOrExit("DB_PASSWORD")
 	ConfigInstance.dbName = getEnvOrExit("DB_NAME")
 	ConfigInstance.dbPort = getEnvOrExit("DB_PORT")
-	ConfigInstance.jwtSecret = []byte(getEnvOrExit("JWT_SECRET_KEY"))
+	ConfigInstance.jwtSecret = []byte(getEnvOrExit("JWT_SECRET"))
 
 }
 
