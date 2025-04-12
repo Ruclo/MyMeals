@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//TODO: binary status -> completed counter, error, obrazok, cookies
+//TODO: error, obrazok, cookies
 
 func main() {
 	config.InitConfig()

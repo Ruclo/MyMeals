@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"github.com/Ruclo/MyMeals/internal/auth"
-	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/gin-gonic/gin"
@@ -81,18 +80,13 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 			return
 		}
 
-		jwt, err := auth.GenerateCustomerToken(order.ID)
+		err = auth.SetCustomerTokenCookie(order.ID, c)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
-
-		orderResponse := dtos.OrderResponse{
-			Order: order,
-			Jwt:   jwt,
-		}
-
-		c.JSON(http.StatusCreated, orderResponse)
+		
+		c.JSON(http.StatusCreated, order)
 	}
 }
 

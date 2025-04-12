@@ -3,7 +3,9 @@ package auth
 import (
 	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/models"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"net/http"
 	"strconv"
 	"time"
 )
@@ -33,8 +35,8 @@ type CustomerClaims struct {
 	jwt.RegisteredClaims
 }
 
-// GenerateStaffToken generates a JWT token for staff members
-func GenerateStaffToken(username string, role models.Role) (string, error) {
+// SetStaffTokenCookie generates a JWT token for staff members
+func SetStaffTokenCookie(username string, role models.Role, c *gin.Context) error {
 	claims := StaffClaims{
 		Username: username,
 		Role:     role,
@@ -49,11 +51,19 @@ func GenerateStaffToken(username string, role models.Role) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token.Header["typ"] = StaffJWT
-	return token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
+	encodedToken, err := token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
+
+	if err != nil {
+		return err
+	}
+
+	c.SetSameSite(http.SameSiteStrictMode)
+	c.SetCookie("token", encodedToken, int(StaffJwtExpirationTime.Seconds()), "/", "", true, true)
+	return nil
 }
 
-// GenerateCustomerToken generates a JWT token for customers
-func GenerateCustomerToken(orderID uint) (string, error) {
+// SetCustomerTokenCookie generates a JWT token for customers
+func SetCustomerTokenCookie(orderID uint, c *gin.Context) error {
 	claims := CustomerClaims{
 		OrderID: strconv.FormatUint(uint64(orderID), 10),
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -67,5 +77,12 @@ func GenerateCustomerToken(orderID uint) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token.Header["typ"] = CustomerJWT
-	return token.SignedString(config.ConfigInstance.JWTSecret())
+
+	encodedToken, err := token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
+	if err != nil {
+		return err
+	}
+	c.SetSameSite(http.SameSiteStrictMode)
+	c.SetCookie("token", encodedToken, int(CustomerJwtExpirationTime.Seconds()), "/", "", true, true)
+	return nil
 }

@@ -44,13 +44,13 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 			return
 		}
 
-		jwt, err := auth.GenerateStaffToken(foundUser.Username, foundUser.Role)
+		err = auth.SetStaffTokenCookie(foundUser.Username, foundUser.Role, c)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"token": jwt})
+		c.Status(http.StatusOK)
 	}
 }
 
