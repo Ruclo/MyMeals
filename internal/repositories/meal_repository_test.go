@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/database"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/shopspring/decimal"
@@ -23,6 +24,7 @@ type MealRepoTestSuite struct {
 }
 
 func (s *MealRepoTestSuite) SetupSuite() {
+	config.InitConfig()
 	s.db = database.CreateConnection()
 	s.repo = NewMealRepository(s.db)
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//TODO: sse event dispatching, obrazok, maybe cookies instead of header?
+//TODO: binary status -> completed counter, error, obrazok, cookies
 
 func main() {
 	config.InitConfig()
@@ -41,7 +41,7 @@ func main() {
 	r.GET("/api/meals", mealsHandler.GetMeals())
 	r.POST("/api/login", usersHandler.Login())
 	r.POST("/api/orders", ordersHandler.PostOrder())
-	r.GET("/api/events/orders", orderEvents.Handler()...)
+
 	authorized := r.Group("/api")
 	authorized.Use(auth.AuthMiddleware())
 
@@ -50,9 +50,9 @@ func main() {
 	staffRoutes.Use(auth.RequireAnyRole(models.RegularStaffRole, models.AdminRole))
 	{
 		staffRoutes.GET("/orders/pending", ordersHandler.GetPendingOrders())
+		staffRoutes.GET("/api/events/orders", orderEvents.Handler()...)
 		staffRoutes.PUT("/account/password", usersHandler.ChangePassword())
 		staffRoutes.PUT("/orders/:orderID/items/:mealID/status", ordersHandler.UpdateStatus())
-		//staffRoutes.GET("/events/orders", orderEvents.Handler()...)
 	}
 
 	// AdminRole only access
@@ -62,7 +62,7 @@ func main() {
 		adminRoutes.POST("/meals", mealsHandler.PostMeal())
 		adminRoutes.PUT("/meals/:mealID", mealsHandler.PutMeal())
 		adminRoutes.DELETE("/meals/:mealID", mealsHandler.DeleteMeal())
-		//adminRoutes.POST("/users", usersHandler.PostUser())
+		adminRoutes.POST("/users", usersHandler.PostUser())
 		adminRoutes.GET("/orders", ordersHandler.GetOrders())
 	}
 

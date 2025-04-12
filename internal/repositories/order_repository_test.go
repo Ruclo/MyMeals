@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/database"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/lib/pq"
@@ -23,6 +24,7 @@ type OrderRepoTestSuite struct {
 }
 
 func (s *OrderRepoTestSuite) SetupSuite() {
+	config.InitConfig()
 	s.db = database.CreateConnection()
 	s.repo = NewOrderRepository(s.db)
 }
@@ -51,12 +53,10 @@ func (s *OrderRepoTestSuite) TestCreate_ValidOrder() {
 			{
 				MealID:   meal.ID,
 				Quantity: 2,
-				Status:   models.StatusPending,
 			},
 			{
 				MealID:   meal2.ID,
 				Quantity: 1,
-				Status:   models.StatusPending,
 			},
 		},
 	}
@@ -66,7 +66,7 @@ func (s *OrderRepoTestSuite) TestCreate_ValidOrder() {
 
 	foundOrder := models.Order{}
 
-	err = s.db.Model(&models.Order{}).Preload("OrderMeals").First(&foundOrder, order.ID).Error
+	err = s.db.Model(&models.Order{}).Preload("OrderMeals.Meal").First(&foundOrder, order.ID).Error
 
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), order.TableNo, foundOrder.TableNo)
@@ -170,7 +170,7 @@ func (s *OrderRepoTestSuite) TestCreate_InvalidOrders() {
 		assert.Error(s.T(), err, "Should reject order with invalid meal quantity")
 
 	})
-	s.Run("Status set do done", func() {
+	s.Run("Completed set to done", func() {
 		meal := CreateValidMeal()
 		err := s.db.Create(meal).Error
 		require.NoError(s.T(), err)
@@ -182,25 +182,25 @@ func (s *OrderRepoTestSuite) TestCreate_InvalidOrders() {
 			Notes:   "Some notes",
 			OrderMeals: []models.OrderMeal{
 				{
-					MealID:   meal.ID,
-					Quantity: 2,
-					Status:   models.StatusDone, // Explicitly set to Done (should be overridden to Pending)
+					MealID:    meal.ID,
+					Quantity:  2,
+					Completed: 4, // Explicitly set to Done (should be overridden to Pending)
 				},
 			},
 		}
 
 		// Create the order
 		err = s.repo.Create(order)
-		assert.NoError(s.T(), err, "Should accept order even with Status set to Done")
+		assert.NoError(s.T(), err, "Should accept order even with Completed set to Done")
 
 		// Check that the status was changed to Pending
 		foundOrder := models.Order{}
-		err = s.db.Model(&models.Order{}).Preload("OrderMeals").First(&foundOrder, order.ID).Error
+		err = s.db.Model(&models.Order{}).Preload("OrderMeals.Meal").First(&foundOrder, order.ID).Error
 		assert.NoError(s.T(), err)
 
 		// Verify status was changed to Pending
-		assert.Equal(s.T(), models.StatusPending, foundOrder.OrderMeals[0].Status,
-			"Status should have been changed to Pending")
+		assert.Equal(s.T(), uint(0), foundOrder.OrderMeals[0].Completed,
+			"Completed should have been changed to Pending")
 
 	})
 }
@@ -230,7 +230,6 @@ func (s *OrderRepoTestSuite) TestGetAllPendingOrders() {
 				{
 					MealID:   meal1.ID,
 					Quantity: 2,
-					Status:   models.StatusPending,
 				},
 			},
 		},
@@ -242,12 +241,10 @@ func (s *OrderRepoTestSuite) TestGetAllPendingOrders() {
 				{
 					MealID:   meal2.ID,
 					Quantity: 1,
-					Status:   models.StatusPending,
 				},
 				{
 					MealID:   meal3.ID,
 					Quantity: 3,
-					Status:   models.StatusPending,
 				},
 			},
 		},
@@ -259,12 +256,10 @@ func (s *OrderRepoTestSuite) TestGetAllPendingOrders() {
 				{
 					MealID:   meal1.ID,
 					Quantity: 1,
-					Status:   models.StatusPending,
 				},
 				{
 					MealID:   meal2.ID,
 					Quantity: 1,
-					Status:   models.StatusPending,
 				},
 			},
 		},
@@ -298,7 +293,7 @@ func (s *OrderRepoTestSuite) TestGetAllPendingOrders() {
 
 		// Verify each meal is in pending status
 		for _, meal := range order.OrderMeals {
-			assert.Equal(s.T(), models.StatusPending, meal.Status, "All order meals should have pending status")
+			assert.Equal(s.T(), uint(0), meal.Completed, "All order meals should have pending status")
 		}
 	}
 
@@ -330,7 +325,6 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 			{
 				MealID:   meal.ID,
 				Quantity: 2,
-				Status:   models.StatusPending,
 			},
 		},
 	}
@@ -375,7 +369,6 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 				{
 					MealID:   meal.ID,
 					Quantity: 1,
-					Status:   models.StatusPending,
 				},
 			},
 		}
@@ -457,7 +450,6 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 				{
 					MealID:   meal.ID,
 					Quantity: 1,
-					Status:   models.StatusPending,
 				},
 			},
 		}
@@ -514,14 +506,13 @@ func (s *OrderRepoTestSuite) TestUpdateStatus() {
 	err = s.repo.Create(&order)
 	require.NoError(s.T(), err)
 
-	assert.Equal(s.T(), models.StatusPending, order.OrderMeals[0].Status)
+	assert.Equal(s.T(), uint(0), order.OrderMeals[0].Completed)
 
-	s.repo.UpdateStatus(order.ID, order.OrderMeals[0].MealID, models.StatusDone)
+	order2, err := s.repo.MarkCompleted(order.ID, order.OrderMeals[0].MealID)
 
-	var foundOrder models.Order
-	err = s.db.Preload("OrderMeals").First(&foundOrder, order.ID).Error
 	assert.NoError(s.T(), err)
-	assert.Equal(s.T(), models.StatusDone, foundOrder.OrderMeals[0].Status)
+
+	assert.Equal(s.T(), order2.OrderMeals[0].Quantity, order2.OrderMeals[0].Completed)
 
 }
 

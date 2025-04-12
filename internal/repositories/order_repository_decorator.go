@@ -36,7 +36,7 @@ func (d *orderRepositoryDecorator) Create(order *models.Order) error {
 }
 
 // AddMealToOrder implements OrderRepository interface with order broadcasting
-func (d *orderRepositoryDecorator) AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error) {
+func (d *orderRepositoryDecorator) AddMealToOrder(orderID, mealID uint, quantity uint) (*models.Order, error) {
 	order, err := d.repo.AddMealToOrder(orderID, mealID, quantity)
 	if err == nil {
 		d.ch <- *order
@@ -49,8 +49,8 @@ func (d *orderRepositoryDecorator) AddReview(review *models.Review) error {
 	return d.repo.AddReview(review)
 }
 
-func (d *orderRepositoryDecorator) UpdateStatus(orderId, mealId uint, status models.OrderStatus) (*models.Order, error) {
-	order, err := d.repo.UpdateStatus(orderId, mealId, status)
+func (d *orderRepositoryDecorator) MarkCompleted(orderId, mealId uint) (*models.Order, error) {
+	order, err := d.repo.MarkCompleted(orderId, mealId)
 	if err == nil {
 		d.ch <- *order
 	}

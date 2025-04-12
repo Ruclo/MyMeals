@@ -1,61 +1,18 @@
 package models
 
 import (
-	"database/sql/driver"
 	"errors"
 	"fmt"
 	"gorm.io/gorm"
 	"time"
 )
 
-type OrderStatus string
-
-const (
-	StatusDone    OrderStatus = "Done"
-	StatusPending OrderStatus = "Pending"
-)
-
-func (s OrderStatus) Valid() error {
-	switch s {
-	case StatusDone, StatusPending:
-		return nil
-	default:
-		return errors.New(fmt.Sprintf("Invalid order status %s", s))
-	}
-}
-
-func (s *OrderStatus) Scan(value interface{}) error {
-	if value == nil {
-		*s = ""
-		return nil
-	}
-
-	str, ok := value.(string)
-	if !ok {
-		bytes, ok := value.([]byte)
-		if !ok {
-			return errors.New("invalid scan source for OrderStatus")
-		}
-		str = string(bytes)
-	}
-
-	*s = OrderStatus(str)
-	return s.Valid()
-}
-
-func (s OrderStatus) Value() (driver.Value, error) {
-	if err := s.Valid(); err != nil {
-		return nil, err
-	}
-	return string(s), nil
-}
-
 type Order struct {
 	ID         uint        `gorm:"primaryKey;autoIncrement" json:"id"`
 	TableNo    int         `gorm:"check:table_no >= 1" json:"table_no" binding:"required"`
 	Name       string      `gorm:"not null" json:"name" binding:"required"`
 	Notes      string      `gorm:"not null" json:"notes"`
-	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID" json:"order_meals" binding:"required"`
+	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID; preload:true" json:"order_meals" binding:"required"`
 	CreatedAt  time.Time   `json:"created_at"`
 	Review     *Review     `gorm:"foreignKey:OrderID" json:"review,omitempty"`
 }
@@ -72,28 +29,31 @@ func (o *Order) BeforeCreate(tx *gorm.DB) error {
 }
 
 type OrderMeal struct {
-	OrderID  uint        `gorm:"primaryKey" json:"order_id"`
-	MealID   uint        `gorm:"primaryKey" json:"meal_id" binding:"required"`
-	MealName string      `gorm:"-" json:"meal_name"`
-	Quantity int         `gorm:"check:quantity >= 1" json:"quantity" binding:"required"`
-	Status   OrderStatus `json:"status"`
-	Meal     *Meal       `gorm:"foreignKey:MealID; preload:true" json:"-"`
+	OrderID   uint   `gorm:"primaryKey" json:"order_id"`
+	MealID    uint   `gorm:"primaryKey" json:"meal_id" binding:"required"`
+	MealName  string `gorm:"-" json:"meal_name"`
+	Quantity  uint   `json:"quantity" binding:"required"`
+	Completed uint   `json:"completed"`
+	Meal      *Meal  `gorm:"foreignKey:MealID; preload:true" json:"-"`
 }
 
 func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {
-	om.Status = StatusPending
+	om.Completed = 0
 	return nil
 }
 
 func (om *OrderMeal) AfterFind(db *gorm.DB) error {
 	fmt.Println("preloading")
 	fmt.Println(om.Meal)
-	if om.Meal == nil {
+	/*	if om.Meal == nil {
 		if err := db.First(&om.Meal, om.MealID); err != nil {
 			return errors.New("nvm zjedz sa")
 		}
+	}*/
+
+	if om.Meal != nil {
+		om.MealName = om.Meal.Name
 	}
 
-	om.MealName = om.Meal.Name
 	return nil
 }

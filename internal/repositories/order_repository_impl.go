@@ -21,7 +21,7 @@ func (r *orderRepositoryImpl) GetAllPendingOrders() ([]*models.Order, error) {
 	err := r.db.
 		Distinct("orders.*").
 		Joins("JOIN order_meals ON orders.id = order_meals.order_id").
-		Where("order_meals.status = ?", models.StatusPending).
+		Where("order_meals.completed < order_meals.quantity ").
 		Preload("OrderMeals.Meal").
 		Find(&orders).Error
 
@@ -71,7 +71,7 @@ func (r *orderRepositoryImpl) Create(order *models.Order) error {
 
 }
 
-func (r *orderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int) (*models.Order, error) {
+func (r *orderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity uint) (*models.Order, error) {
 	var existingOrderMeal models.OrderMeal
 
 	err := r.db.Where("order_id = ? AND meal_id = ?", orderID, mealID).First(&existingOrderMeal).Error
@@ -96,7 +96,7 @@ func (r *orderRepositoryImpl) AddMealToOrder(orderID, mealID uint, quantity int)
 	}
 
 	var updatedOrder models.Order
-	if err = r.db.Preload("OrderMeals").
+	if err = r.db.Preload("OrderMeals.Meal").
 		First(&updatedOrder, orderID).Error; err != nil {
 		return nil, err
 	}
@@ -109,15 +109,23 @@ func (r *orderRepositoryImpl) AddReview(review *models.Review) error {
 	return r.db.Create(review).Error
 }
 
-func (r *orderRepositoryImpl) UpdateStatus(orderId, mealId uint, status models.OrderStatus) (*models.Order, error) {
-	err := r.db.Model(&models.OrderMeal{}).Where("order_id = ? AND meal_id = ?", orderId, mealId).
-		Update("status", status).Error
+func (r *orderRepositoryImpl) MarkCompleted(orderId, mealId uint) (*models.Order, error) {
+	var orderMeal models.OrderMeal
+	err := r.db.Where("order_id = ? AND meal_id = ?", orderId, mealId).First(&orderMeal).Error
 	if err != nil {
 		return nil, err
 	}
+
+	orderMeal.Completed = orderMeal.Quantity
+	err = r.db.Model(orderMeal).Updates(orderMeal).Error
+
+	if err != nil {
+		return nil, err
+	}
+
 	var order models.Order
-	if err = r.db.Preload("OrderMeals").
-		First(&order, orderId).Error; err != nil {
+
+	if err = r.db.Preload("OrderMeals.Meal").First(&order, orderId).Error; err != nil {
 		return nil, err
 	}
 

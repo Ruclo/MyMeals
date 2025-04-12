@@ -180,18 +180,9 @@ func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 			return
 		}
 
-		var updateStatusRequest dtos.UpdateStatusRequest
-
-		err = c.ShouldBindJSON(&updateStatusRequest)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-			return
-		}
-
-		order, err := oh.orderRepository.UpdateStatus(uint(orderID), uint(mealID), updateStatusRequest.Status)
+		order, err := oh.orderRepository.MarkCompleted(uint(orderID), uint(mealID))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
-			//TODO: Might be a wrong request
 			return
 		}
 
