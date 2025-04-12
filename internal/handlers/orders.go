@@ -5,6 +5,7 @@ import (
 	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
+	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -13,10 +14,11 @@ import (
 
 type OrdersHandler struct {
 	orderRepository repositories.OrderRepository
+	cloudinary      *cloudinary.Cloudinary
 }
 
-func NewOrdersHandler(orderRepository repositories.OrderRepository) *OrdersHandler {
-	return &OrdersHandler{orderRepository: orderRepository}
+func NewOrdersHandler(orderRepository repositories.OrderRepository, cloudinary *cloudinary.Cloudinary) *OrdersHandler {
+	return &OrdersHandler{orderRepository: orderRepository, cloudinary: cloudinary}
 }
 
 func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
@@ -85,7 +87,7 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
-		
+
 		c.JSON(http.StatusCreated, order)
 	}
 }

@@ -3,6 +3,8 @@ package handlers
 import (
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
+	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -10,10 +12,11 @@ import (
 
 type MealsHandler struct {
 	mealRepository repositories.MealRepository
+	cloudinary     *cloudinary.Cloudinary
 }
 
-func NewMealsHandler(mealRepository repositories.MealRepository) *MealsHandler {
-	return &MealsHandler{mealRepository: mealRepository}
+func NewMealsHandler(mealRepository repositories.MealRepository, cloudinary *cloudinary.Cloudinary) *MealsHandler {
+	return &MealsHandler{mealRepository: mealRepository, cloudinary: cloudinary}
 }
 
 func (mh *MealsHandler) GetMeals() gin.HandlerFunc {
@@ -32,12 +35,27 @@ func (mh *MealsHandler) GetMeals() gin.HandlerFunc {
 func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var meal models.Meal
-		if err := c.ShouldBindJSON(&meal); err != nil {
+		if err := c.ShouldBind(&meal); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
 
-		err := mh.mealRepository.Create(&meal)
+		photo, err := c.FormFile("photo")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing photo"})
+			return
+		}
+
+		result, err := mh.cloudinary.Upload.Upload(c, photo,
+			uploader.UploadParams{Transformation: "c_crop,h_1000,w_1000"})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+			return
+		}
+
+		meal.ImageURL = result.SecureURL
+
+		err = mh.mealRepository.Create(&meal)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create meal"})

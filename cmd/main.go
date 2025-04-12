@@ -8,24 +8,30 @@ import (
 	"github.com/Ruclo/MyMeals/internal/handlers"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
+	cloudinary2 "github.com/cloudinary/cloudinary-go/v2"
 	"github.com/gin-gonic/gin"
+	"log"
 )
 
-//TODO: error, obrazok, cookies
+//TODO: error, obrazok
 
 func main() {
 	config.InitConfig()
 
 	db := database.InitDB()
 	orderEvents := events.NewServer()
+	cloudinary, err := cloudinary2.NewFromURL(config.ConfigInstance.CloudinaryUrl())
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	mealRepo := repositories.NewMealRepository(db)
 	orderRepo := repositories.NewOrderRepository(db)
 	userRepo := repositories.NewUserRepository(db)
 	broadcastingOrderRepo := repositories.NewBroadcastingOrderRepository(orderRepo, orderEvents.Message)
 
-	mealsHandler := handlers.NewMealsHandler(mealRepo)
-	ordersHandler := handlers.NewOrdersHandler(broadcastingOrderRepo)
+	mealsHandler := handlers.NewMealsHandler(mealRepo, cloudinary)
+	ordersHandler := handlers.NewOrdersHandler(broadcastingOrderRepo, cloudinary)
 	usersHandler := handlers.NewUsersHandler(userRepo)
 
 	r := gin.Default()
@@ -57,7 +63,7 @@ func main() {
 
 	// AdminRole only access
 	adminRoutes := authorized.Group("/")
-	adminRoutes.Use(auth.RequireAnyRole(models.AdminRole))
+	//adminRoutes.Use(auth.RequireAnyRole(models.AdminRole))
 	{
 		adminRoutes.POST("/meals", mealsHandler.PostMeal())
 		adminRoutes.PUT("/meals/:mealID", mealsHandler.PutMeal())

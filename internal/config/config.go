@@ -9,12 +9,13 @@ import (
 var ConfigInstance Config
 
 type Config struct {
-	dbHost     string
-	dbUser     string
-	dbPassword string
-	dbName     string
-	dbPort     string
-	jwtSecret  []byte
+	dbHost        string
+	dbUser        string
+	dbPassword    string
+	dbName        string
+	dbPort        string
+	jwtSecret     []byte
+	cloudinaryUrl string
 }
 
 func (c *Config) DBHost() string {
@@ -41,6 +42,9 @@ func (c *Config) JWTSecret() []byte {
 	return c.jwtSecret
 }
 
+func (c *Config) CloudinaryUrl() string {
+	return c.cloudinaryUrl
+}
 func InitConfig() {
 	err := godotenv.Load()
 	if err != nil {
@@ -54,6 +58,7 @@ func InitConfig() {
 	ConfigInstance.dbName = getEnvOrExit("DB_NAME")
 	ConfigInstance.dbPort = getEnvOrExit("DB_PORT")
 	ConfigInstance.jwtSecret = []byte(getEnvOrExit("JWT_SECRET"))
+	ConfigInstance.cloudinaryUrl = getEnvOrExit("CLOUDINARY_URL")
 
 }
 
