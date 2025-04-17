@@ -1,19 +1,17 @@
 package main
 
 import (
-	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/database"
 	"github.com/Ruclo/MyMeals/internal/events"
 	"github.com/Ruclo/MyMeals/internal/handlers"
-	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	cloudinary2 "github.com/cloudinary/cloudinary-go/v2"
 	"github.com/gin-gonic/gin"
 	"log"
 )
 
-//TODO: error, obrazok
+//TODO: error
 
 func main() {
 	config.InitConfig()
@@ -49,11 +47,11 @@ func main() {
 	r.POST("/api/orders", ordersHandler.PostOrder())
 
 	authorized := r.Group("/api")
-	authorized.Use(auth.AuthMiddleware())
+	//authorized.Use(auth.AuthMiddleware())
 
 	// AdminRole or RegularStaffRole routes
 	staffRoutes := authorized.Group("/")
-	staffRoutes.Use(auth.RequireAnyRole(models.RegularStaffRole, models.AdminRole))
+	//staffRoutes.Use(auth.RequireAnyRole(models.RegularStaffRole, models.AdminRole))
 	{
 		staffRoutes.GET("/orders/pending", ordersHandler.GetPendingOrders())
 		staffRoutes.GET("/api/events/orders", orderEvents.Handler()...)
@@ -74,7 +72,7 @@ func main() {
 
 	// Order Creator access only
 	orderRoutes := authorized.Group("/orders/:orderID")
-	orderRoutes.Use(auth.RequireOrderAccess())
+	//orderRoutes.Use(auth.RequireOrderAccess())
 	{
 		orderRoutes.POST("/items", ordersHandler.PostOrderItem())
 		orderRoutes.POST("/review", ordersHandler.PostOrderReview())

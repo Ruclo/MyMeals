@@ -9,11 +9,13 @@ import (
 	"strings"
 )
 
+const MaxReviewPhotos = 3
+
 type Review struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
 	OrderID   uint           `gorm:"unique; not null; constraint: OnDelete:CASCADE, OnUpdate:CASCADE; references:orders(ID)" json:"order_id"`
-	Rating    int            `gorm:"check:rating >= 1 AND rating <= 5" json:"rating" binding:"required"`
-	Comment   *string        `json:"comment"`
+	Rating    int            `gorm:"check:rating >= 1 AND rating <= 5" json:"rating" form:"rating" binding:"required"`
+	Comment   *string        `json:"comment" form:"comment"`
 	PhotoURLs pq.StringArray `gorm:"type:text[]; not null" json:"photo_urls"`
 }
 

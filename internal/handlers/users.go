@@ -30,7 +30,6 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 		}
 
 		foundUser, err := uh.userRepository.GetByUsername(user.Username)
-
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
 			return
@@ -75,6 +74,7 @@ func (uh *UsersHandler) PostUser() gin.HandlerFunc {
 		err = uh.userRepository.Create(&user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+			//TODO: The user might exist
 			return
 		}
 
@@ -96,11 +96,11 @@ func (uh *UsersHandler) ChangePassword() gin.HandlerFunc {
 		username := c.MustGet("username")
 
 		user, err := uh.userRepository.GetByUsername(username.(string))
-
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
 			return
 		}
+
 		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(changePasswordRequest.OldPassword))
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})

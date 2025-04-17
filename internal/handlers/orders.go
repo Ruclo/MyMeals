@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"fmt"
 	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -32,7 +32,6 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 
 		olderThanStr := c.Query("olderThan")
 		olderThan := time.Time{}
-		fmt.Println(olderThanStr)
 		if olderThanStr != "" {
 			olderThan, err = time.Parse(time.RFC3339, olderThanStr)
 			if err != nil {
@@ -79,12 +78,13 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 		err = oh.orderRepository.Create(&order)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
+			// TODO: Invalid
 			return
 		}
 
 		err = auth.SetCustomerTokenCookie(order.ID, c)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set customer cookie"})
 			return
 		}
 
@@ -116,6 +116,7 @@ func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 		order, err := oh.orderRepository.AddMealToOrder(uint(orderId), orderItem.MealID, orderItem.Quantity)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add meal to order"})
+			// TODO: Not existing meal or order or whatever
 			return
 		}
 
@@ -138,14 +139,37 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 			return
 		}
 		var review models.Review
-		err = c.ShouldBindJSON(&review)
+		err = c.ShouldBind(&review)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
+
+		photos := c.Request.MultipartForm.File["photos"]
+
+		if len(photos) > models.MaxReviewPhotos {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Too many photos requested"})
+		}
+
+		var photoUrls []string
+
+		for _, photo := range photos {
+			result, err := oh.cloudinary.Upload.Upload(c, photo,
+				uploader.UploadParams{Transformation: "c_limit,h_1920,w_1920"})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+				return
+			}
+
+			photoUrls = append(photoUrls, result.SecureURL)
+		}
+
 		review.OrderID = uint(orderId)
+		review.PhotoURLs = photoUrls
 		if err := oh.orderRepository.AddReview(&review); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add review"})
+			//TODO: Invalid order ?
+			return
 		}
 
 		c.Status(http.StatusCreated)
@@ -179,6 +203,7 @@ func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 		order, err := oh.orderRepository.MarkCompleted(uint(orderID), uint(mealID))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
+			// TODO: Non existant order meal ?
 			return
 		}
 
