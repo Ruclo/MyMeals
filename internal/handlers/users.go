@@ -1,21 +1,20 @@
 package handlers
 
 import (
-	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/models"
-	"github.com/Ruclo/MyMeals/internal/repositories"
+	"github.com/Ruclo/MyMeals/services"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
 )
 
 type UsersHandler struct {
-	userRepository repositories.UserRepository
+	//userRepository repositories.UserRepository
+	userService services.UserService
 }
 
-func NewUsersHandler(userRepository repositories.UserRepository) *UsersHandler {
-	return &UsersHandler{userRepository: userRepository}
+func NewUsersHandler(userService services.UserService) *UsersHandler {
+	return &UsersHandler{userService: userService}
 }
 
 func (uh *UsersHandler) Login() gin.HandlerFunc {
@@ -29,20 +28,7 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 			return
 		}
 
-		foundUser, err := uh.userRepository.GetByUsername(user.Username)
-		if err != nil {
-			c.Error(err) // TODO: Unauthorized
-			return
-		}
-
-		err = bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password))
-
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-			return
-		}
-
-		err = auth.SetStaffTokenCookie(foundUser.Username, foundUser.Role, c)
+		err = uh.userService.Login(c, &user)
 		if err != nil {
 			c.Error(err)
 			return
@@ -62,21 +48,11 @@ func (uh *UsersHandler) PostUser() gin.HandlerFunc {
 			return
 		}
 
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		err = uh.userService.Create(&user)
 		if err != nil {
 			c.Error(err)
 			return
 		}
-
-		user.Password = string(hashedPassword)
-		user.Role = models.AdminRole
-		err = uh.userRepository.Create(&user)
-		if err != nil {
-			c.Error(err)
-			//TODO: The user might exist, just c.Error(err)
-			return
-		}
-
 		c.Status(http.StatusCreated)
 	}
 }
@@ -88,33 +64,15 @@ func (uh *UsersHandler) ChangePassword() gin.HandlerFunc {
 
 		err := c.ShouldBindJSON(&changePasswordRequest)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"}) // TODO
 			return
 		}
 
 		username := c.MustGet("username")
 
-		user, err := uh.userRepository.GetByUsername(username.(string))
-		if err != nil {
-			c.Error(err)
-			return
-		}
-
-		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(changePasswordRequest.OldPassword))
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-			return
-		}
-
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(changePasswordRequest.NewPassword), bcrypt.DefaultCost)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-		}
-
-		err = uh.userRepository.Update(&models.StaffMember{
-			Username: username.(string),
-			Password: string(hashedPassword),
-		})
+		err = uh.userService.ChangePassword(username.(string),
+			changePasswordRequest.OldPassword,
+			changePasswordRequest.NewPassword)
 
 		if err != nil {
 			c.Error(err)

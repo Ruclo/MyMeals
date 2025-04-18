@@ -58,6 +58,14 @@ func NewInternalServerErr(message string, err error) *AppError {
 	return new(err, message, http.StatusInternalServerError)
 }
 
+func NewUnauthorizedErr(message string, err error) *AppError {
+	return new(err, message, http.StatusUnauthorized)
+}
+
+func NewAlreadyExistsErr(message string, err error) *AppError {
+	return new(err, message, http.StatusConflict)
+}
+
 func classifyError(err error) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return NewNotFoundErr("Resource not found", err)
