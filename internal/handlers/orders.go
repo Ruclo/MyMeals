@@ -26,7 +26,7 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 		pageSizeStr := c.DefaultQuery("pagesize", "10")
 		pageSize, err := strconv.ParseUint(pageSizeStr, 10, 32)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid pagesize parameter"})
+			c.Error(err)
 			return
 		}
 
@@ -35,7 +35,7 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 		if olderThanStr != "" {
 			olderThan, err = time.Parse(time.RFC3339, olderThanStr)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid olderThan parameter"})
+				c.Error(err)
 				return
 			}
 		}
@@ -43,7 +43,7 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 		orders, err := oh.orderRepository.GetOrders(olderThan, uint(pageSize))
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetched orders"})
+			c.Error(err)
 			return
 		}
 
@@ -57,7 +57,7 @@ func (oh *OrdersHandler) GetPendingOrders() gin.HandlerFunc {
 		orders, err := oh.orderRepository.GetAllPendingOrders()
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetched orders"})
+			c.Error(err)
 			return
 		}
 
@@ -71,20 +71,19 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 
 		err := c.ShouldBindJSON(&order)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			c.Error(err)
 			return
 		}
 
 		err = oh.orderRepository.Create(&order)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
-			// TODO: Invalid
+			c.Error(err)
 			return
 		}
 
 		err = auth.SetCustomerTokenCookie(order.ID, c)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set customer cookie"})
+			c.Error(err)
 			return
 		}
 
@@ -95,13 +94,10 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orderIdStr := c.Param("orderID")
-		if orderIdStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing orderID parameter"})
-			return
-		}
+
 		orderId, err := strconv.ParseUint(orderIdStr, 10, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID parameter"})
+			c.Error(err)
 			return
 		}
 
@@ -109,14 +105,13 @@ func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 
 		err = c.ShouldBindJSON(&orderItem)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			c.Error(err)
 			return
 		}
 
 		order, err := oh.orderRepository.AddMealToOrder(uint(orderId), orderItem.MealID, orderItem.Quantity)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add meal to order"})
-			// TODO: Not existing meal or order or whatever
+			c.Error(err)
 			return
 		}
 
@@ -128,27 +123,23 @@ func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orderIdStr := c.Param("orderID")
-		if orderIdStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing orderID parameter"})
-			return
-		}
 
 		orderId, err := strconv.ParseUint(orderIdStr, 10, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID parameter"})
+			c.Error(err)
 			return
 		}
 		var review models.Review
 		err = c.ShouldBind(&review)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			c.Error(err)
 			return
 		}
 
 		photos := c.Request.MultipartForm.File["photos"]
 
 		if len(photos) > models.MaxReviewPhotos {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Too many photos requested"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Too many photos requested"}) // TODO ?
 		}
 
 		var photoUrls []string
@@ -157,7 +148,7 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 			result, err := oh.cloudinary.Upload.Upload(c, photo,
 				uploader.UploadParams{Transformation: "c_limit,h_1920,w_1920"})
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+				c.Error(err)
 				return
 			}
 
@@ -167,8 +158,7 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 		review.OrderID = uint(orderId)
 		review.PhotoURLs = photoUrls
 		if err := oh.orderRepository.AddReview(&review); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add review"})
-			//TODO: Invalid order ?
+			c.Error(err)
 			return
 		}
 
@@ -179,31 +169,24 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orderIDStr := c.Param("orderID")
-		if orderIDStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing orderID parameter"})
-			return
-		}
+
 		orderID, err := strconv.ParseUint(orderIDStr, 10, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID parameter"})
+			c.Error(err)
 			return
 		}
 
 		mealIDStr := c.Param("mealID")
-		if mealIDStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing mealID parameter"})
-			return
-		}
+
 		mealID, err := strconv.ParseUint(mealIDStr, 10, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid mealID parameter"})
+			c.Error(err)
 			return
 		}
 
 		order, err := oh.orderRepository.MarkCompleted(uint(orderID), uint(mealID))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
-			// TODO: Non existant order meal ?
+			c.Error(err)
 			return
 		}
 

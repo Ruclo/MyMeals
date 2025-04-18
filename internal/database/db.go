@@ -13,11 +13,17 @@ import (
 func CreateConnection() *gorm.DB {
 	conf := config.ConfigInstance
 
-	dbString := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s", conf.DBHost(), conf.DBUser(),
-		conf.DBPassword(), conf.DBName(), conf.DBPort())
-	db, err := gorm.Open(postgres.Open(dbString), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info), // Set log level to Info
-	})
+	dbString := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s",
+		conf.DBHost(),
+		conf.DBUser(),
+		conf.DBPassword(),
+		conf.DBName(),
+		conf.DBPort())
+
+	db, err := gorm.Open(postgres.Open(dbString),
+		&gorm.Config{
+			Logger: logger.Default.LogMode(logger.Info),
+		})
 	if err != nil {
 		log.Fatal("Failed to connect to the DB: ", err)
 	}

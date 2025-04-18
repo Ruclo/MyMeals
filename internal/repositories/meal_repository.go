@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"gorm.io/gorm"
 )
@@ -42,7 +43,8 @@ func (r *mealRepositoryImpl) Update(meal *models.Meal) error {
 	}
 
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("meal %s with id %d not found", meal.Name, meal.ID)
+		err := fmt.Errorf("meal %s with id %d not found", meal.Name, meal.ID)
+		return errors.NewNotFoundErr(err.Error(), err)
 	}
 
 	return nil

@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/database"
+	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/events"
 	"github.com/Ruclo/MyMeals/internal/handlers"
 	"github.com/Ruclo/MyMeals/internal/repositories"
@@ -10,8 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 )
-
-//TODO: error
 
 func main() {
 	config.InitConfig()
@@ -33,6 +32,7 @@ func main() {
 	usersHandler := handlers.NewUsersHandler(userRepo)
 
 	r := gin.Default()
+	r.Use(errors.ErrorHandler())
 	// Public routes
 	r.LoadHTMLGlob("templates/*")
 

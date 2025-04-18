@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"fmt"
+	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"gorm.io/gorm"
 )
@@ -34,5 +36,15 @@ func (r *userRepositoryImpl) Create(user *models.StaffMember) error {
 }
 
 func (r *userRepositoryImpl) Update(user *models.StaffMember) error {
-	return r.db.Model(user).Updates(user).Error
+	res := r.db.Model(user).Updates(user)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		err := fmt.Errorf("no user with username %s found", user.Username)
+		return errors.NewNotFoundErr(err.Error(), err)
+	}
+
+	return nil
 }

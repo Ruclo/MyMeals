@@ -25,15 +25,14 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 		err := c.ShouldBindJSON(&user)
 
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			c.Error(err)
 			return
 		}
 
 		foundUser, err := uh.userRepository.GetByUsername(user.Username)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+			c.Error(err) // TODO: Unauthorized
 			return
-			//TODO: User doesnt exist
 		}
 
 		err = bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password))
@@ -45,7 +44,7 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 
 		err = auth.SetStaffTokenCookie(foundUser.Username, foundUser.Role, c)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			c.Error(err)
 			return
 		}
 
@@ -59,13 +58,13 @@ func (uh *UsersHandler) PostUser() gin.HandlerFunc {
 
 		err := c.ShouldBindJSON(&user)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			c.Error(err)
 			return
 		}
 
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+			c.Error(err)
 			return
 		}
 
@@ -73,8 +72,8 @@ func (uh *UsersHandler) PostUser() gin.HandlerFunc {
 		user.Role = models.AdminRole
 		err = uh.userRepository.Create(&user)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-			//TODO: The user might exist
+			c.Error(err)
+			//TODO: The user might exist, just c.Error(err)
 			return
 		}
 
@@ -97,7 +96,7 @@ func (uh *UsersHandler) ChangePassword() gin.HandlerFunc {
 
 		user, err := uh.userRepository.GetByUsername(username.(string))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+			c.Error(err)
 			return
 		}
 
@@ -118,7 +117,8 @@ func (uh *UsersHandler) ChangePassword() gin.HandlerFunc {
 		})
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+			c.Error(err)
+			return
 		}
 
 		c.Status(http.StatusOK)
