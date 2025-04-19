@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"github.com/Ruclo/MyMeals/internal/auth"
+	"github.com/Ruclo/MyMeals/internal/dtos"
+	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
-	"github.com/Ruclo/MyMeals/internal/repositories"
-	"github.com/cloudinary/cloudinary-go/v2"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -13,12 +13,11 @@ import (
 )
 
 type OrdersHandler struct {
-	orderRepository repositories.OrderRepository
-	cloudinary      *cloudinary.Cloudinary
+	orderService services.OrderService
 }
 
-func NewOrdersHandler(orderRepository repositories.OrderRepository, cloudinary *cloudinary.Cloudinary) *OrdersHandler {
-	return &OrdersHandler{orderRepository: orderRepository, cloudinary: cloudinary}
+func NewOrdersHandler(orderService services.OrderService) *OrdersHandler {
+	return &OrdersHandler{orderService: orderService}
 }
 
 func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
@@ -26,7 +25,7 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 		pageSizeStr := c.DefaultQuery("pagesize", "10")
 		pageSize, err := strconv.ParseUint(pageSizeStr, 10, 32)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid page size", err))
 			return
 		}
 
@@ -35,13 +34,14 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 		if olderThanStr != "" {
 			olderThan, err = time.Parse(time.RFC3339, olderThanStr)
 			if err != nil {
-				c.Error(err)
+				c.Error(errors.NewValidationErr("Invalid older than argument", err))
 				return
 			}
 		}
 
-		orders, err := oh.orderRepository.GetOrders(olderThan, uint(pageSize))
+		orders, err := oh.orderService.GetOrders(olderThan, uint(pageSize))
 
+		// TODO: to dtos
 		if err != nil {
 			c.Error(err)
 			return
@@ -54,8 +54,8 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 
 func (oh *OrdersHandler) GetPendingOrders() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		orders, err := oh.orderRepository.GetAllPendingOrders()
-
+		orders, err := oh.orderService.GetAllPendingOrders()
+		//TODO: to dtos
 		if err != nil {
 			c.Error(err)
 			return
@@ -67,15 +67,17 @@ func (oh *OrdersHandler) GetPendingOrders() gin.HandlerFunc {
 
 func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var order models.Order
+		var request dtos.CreateOrderRequest
 
-		err := c.ShouldBindJSON(&order)
+		err := c.ShouldBindJSON(&request)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid request", err))
 			return
 		}
 
-		err = oh.orderRepository.Create(&order)
+		order := request.ToModel()
+
+		err = oh.orderService.Create(order)
 		if err != nil {
 			c.Error(err)
 			return
@@ -83,10 +85,10 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 
 		err = auth.SetCustomerTokenCookie(order.ID, c)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewInternalServerErr("Failed to set the cookie", err))
 			return
 		}
-
+		//TODO: to DTO
 		c.JSON(http.StatusCreated, order)
 	}
 }
@@ -97,25 +99,25 @@ func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 
 		orderId, err := strconv.ParseUint(orderIdStr, 10, 64)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid order id", err))
 			return
 		}
 
-		var orderItem models.OrderMeal
+		var orderItem dtos.OrderMealRequest
 
 		err = c.ShouldBindJSON(&orderItem)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid request", err))
 			return
 		}
 
-		order, err := oh.orderRepository.AddMealToOrder(uint(orderId), orderItem.MealID, orderItem.Quantity)
+		order, err := oh.orderService.AddMealToOrder(uint(orderId), orderItem.MealID, orderItem.Quantity)
 		if err != nil {
 			c.Error(err)
 			return
 		}
 
-		// StatusCreated?
+		// TODO: status created ?, DTO
 		c.JSON(http.StatusOK, order)
 	}
 }
@@ -126,7 +128,7 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 
 		orderId, err := strconv.ParseUint(orderIdStr, 10, 64)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid order id", err))
 			return
 		}
 		var review models.Review
@@ -136,32 +138,15 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 			return
 		}
 
+		review.OrderID = uint(orderId)
+
 		photos := c.Request.MultipartForm.File["photos"]
 
-		if len(photos) > models.MaxReviewPhotos {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Too many photos requested"}) // TODO ?
-		}
-
-		var photoUrls []string
-
-		for _, photo := range photos {
-			result, err := oh.cloudinary.Upload.Upload(c, photo,
-				uploader.UploadParams{Transformation: "c_limit,h_1920,w_1920"})
-			if err != nil {
-				c.Error(err)
-				return
-			}
-
-			photoUrls = append(photoUrls, result.SecureURL)
-		}
-
-		review.OrderID = uint(orderId)
-		review.PhotoURLs = photoUrls
-		if err := oh.orderRepository.AddReview(&review); err != nil {
+		if err = oh.orderService.CreateReview(c, &review, photos); err != nil {
 			c.Error(err)
 			return
 		}
-
+		// TODO DTO
 		c.Status(http.StatusCreated)
 	}
 }
@@ -172,7 +157,7 @@ func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 
 		orderID, err := strconv.ParseUint(orderIDStr, 10, 64)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid order id", err))
 			return
 		}
 
@@ -180,11 +165,11 @@ func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 
 		mealID, err := strconv.ParseUint(mealIDStr, 10, 64)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid meal id", err))
 			return
 		}
 
-		order, err := oh.orderRepository.MarkCompleted(uint(orderID), uint(mealID))
+		order, err := oh.orderService.MarkCompleted(uint(orderID), uint(mealID))
 		if err != nil {
 			c.Error(err)
 			return

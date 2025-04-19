@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"github.com/Ruclo/MyMeals/internal/models"
-	"time"
 )
 
 func NewBroadcastingOrderRepository(repo OrderRepository, ch chan models.Order) OrderRepository {
@@ -17,13 +16,8 @@ type orderRepositoryDecorator struct {
 	ch   chan models.Order
 }
 
-// GetAllPendingOrders implements OrderRepository interface, No event
-func (d *orderRepositoryDecorator) GetAllPendingOrders() ([]*models.Order, error) {
-	return d.repo.GetAllPendingOrders()
-}
-
-func (d *orderRepositoryDecorator) GetOrders(olderThan time.Time, pageSize uint) ([]*models.Order, error) {
-	return d.repo.GetOrders(olderThan, pageSize)
+func (d *orderRepositoryDecorator) GetOrders(params OrderQueryParams) ([]*models.Order, error) {
+	return d.repo.GetOrders(params)
 }
 
 // Create implements OrderRepository interface with order broadcasting
@@ -46,7 +40,7 @@ func (d *orderRepositoryDecorator) AddMealToOrder(orderID, mealID uint, quantity
 
 // AddReview implements OrderRepository interface
 func (d *orderRepositoryDecorator) AddReview(review *models.Review) error {
-	return d.repo.AddReview(review)
+	return d.repo.CreateReview(review)
 }
 
 func (d *orderRepositoryDecorator) MarkCompleted(orderId, mealId uint) (*models.Order, error) {

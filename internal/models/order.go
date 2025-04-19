@@ -10,7 +10,6 @@ import (
 type Order struct {
 	ID         uint        `gorm:"primaryKey;autoIncrement" json:"id"`
 	TableNo    int         `gorm:"check:table_no >= 1" json:"table_no" binding:"required"`
-	Name       string      `gorm:"not null" json:"name" binding:"required"`
 	Notes      string      `gorm:"not null" json:"notes"`
 	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID; preload:true" json:"order_meals" binding:"required"`
 	CreatedAt  time.Time   `json:"created_at"`

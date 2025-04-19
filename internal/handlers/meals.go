@@ -1,65 +1,50 @@
 package handlers
 
 import (
-	stdErrors "errors"
+	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
-	"github.com/Ruclo/MyMeals/internal/repositories"
-	"github.com/cloudinary/cloudinary-go/v2"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
 )
 
 type MealsHandler struct {
-	mealRepository repositories.MealRepository
-	cloudinary     *cloudinary.Cloudinary
+	mealService services.MealService
 }
 
-func NewMealsHandler(mealRepository repositories.MealRepository, cloudinary *cloudinary.Cloudinary) *MealsHandler {
-	return &MealsHandler{mealRepository: mealRepository, cloudinary: cloudinary}
+func NewMealsHandler(mealService services.MealService) *MealsHandler {
+	return &MealsHandler{mealService: mealService}
 }
 
 func (mh *MealsHandler) GetMeals() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		meals, err := mh.mealRepository.GetAll()
-
+		meals, err := mh.mealService.GetAll()
 		if err != nil {
 			c.Error(err)
 			return
 		}
-
 		c.JSON(http.StatusOK, meals)
 	}
 }
 
 func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var meal models.Meal
-		if err := c.ShouldBind(&meal); err != nil {
-			c.Error(err)
+		var createMealRequest dtos.CreateMealRequest
+		if err := c.ShouldBind(&createMealRequest); err != nil {
+			c.Error(errors.NewValidationErr("Invalid request", err))
 			return
 		}
 
 		photo, err := c.FormFile("photo")
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("photo not provided", err))
 			return
 		}
 
-		result, err := mh.cloudinary.Upload.Upload(c, photo,
-			uploader.UploadParams{Transformation: "c_crop,h_1000,w_1000"})
-		if err != nil {
-			c.Error(err)
-			return
-		}
-
-		meal.ImageURL = result.SecureURL
-
-		err = mh.mealRepository.Create(&meal)
-
-		if err != nil {
+		var meal *models.Meal
+		if meal, err = mh.mealService.Create(c, createMealRequest, photo); err != nil {
 			c.Error(err)
 			return
 		}
@@ -72,19 +57,18 @@ func (mh *MealsHandler) PutMeal() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var meal models.Meal
 		if err := c.ShouldBindJSON(&meal); err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("invalid request", err))
 			return
 		}
 
 		id := c.Param("mealID")
-
 		idUint, err := strconv.ParseUint(id, 10, 64)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid meal id", err))
 		}
-		meal.ID = uint(idUint)
 
-		err = mh.mealRepository.Update(&meal)
+		meal.ID = uint(idUint)
+		err = mh.mealService.Update(&meal)
 
 		if err != nil {
 			c.Error(err)
@@ -101,18 +85,15 @@ func (mh *MealsHandler) DeleteMeal() gin.HandlerFunc {
 
 		idUint, err := strconv.ParseUint(id, 10, 64)
 		if err != nil {
-			err := stdErrors.New("id is invalid")
-			c.Error(errors.NewValidationErr(err.Error(), err))
+			c.Error(errors.NewValidationErr("id is invalid", nil))
 			return
 		}
-		mealId := uint(idUint)
 
-		err = mh.mealRepository.Delete(&models.Meal{ID: mealId})
+		err = mh.mealService.Delete(uint(idUint))
 
 		if err != nil {
 			c.Error(err)
 			return
-			//TODO: Check invalid meal
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Meal deleted"})

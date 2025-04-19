@@ -343,7 +343,7 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 		}
 
 		// Add review
-		err = s.repo.AddReview(review)
+		err = s.repo.CreateReview(review)
 		assert.NoError(s.T(), err)
 
 		// Verify review was added
@@ -384,7 +384,7 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 		}
 
 		// Add review
-		err = s.repo.AddReview(review)
+		err = s.repo.CreateReview(review)
 		assert.NoError(s.T(), err, "Empty comments should be allowed")
 
 		// Verify review was added
@@ -404,7 +404,7 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 		}
 
 		// Add review
-		err = s.repo.AddReview(review)
+		err = s.repo.CreateReview(review)
 		assert.Error(s.T(), err, "Should reject review with rating lower than 1")
 		assert.Contains(s.T(), err.Error(), "rating", "Error should mention invalid rating")
 	})
@@ -419,7 +419,7 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 		}
 
 		// Add review
-		err = s.repo.AddReview(review)
+		err = s.repo.CreateReview(review)
 		assert.Error(s.T(), err, "Should reject review with rating higher than 5")
 		assert.Contains(s.T(), err.Error(), "rating", "Error should mention invalid rating")
 	})
@@ -435,7 +435,7 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 		}
 
 		// Add review
-		err = s.repo.AddReview(review)
+		err = s.repo.CreateReview(review)
 		assert.Error(s.T(), err, "Should reject review for non-existent order")
 		assert.Contains(s.T(), err.Error(), "order", "Error should mention the order not found")
 	})
@@ -463,7 +463,7 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 			Rating:  4,
 			Comment: &comment,
 		}
-		err = s.repo.AddReview(firstReview)
+		err = s.repo.CreateReview(firstReview)
 		require.NoError(s.T(), err)
 
 		// Try to add second review for same order
@@ -473,7 +473,7 @@ func (s *OrderRepoTestSuite) TestAddReview() {
 			Rating:  5,
 			Comment: &comment2,
 		}
-		err = s.repo.AddReview(secondReview)
+		err = s.repo.CreateReview(secondReview)
 		assert.Error(s.T(), err, "Should not allow multiple reviews for the same order")
 
 		// Verify first review remains unchanged

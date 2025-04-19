@@ -2,14 +2,14 @@ package handlers
 
 import (
 	"github.com/Ruclo/MyMeals/internal/dtos"
+	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
-	"github.com/Ruclo/MyMeals/services"
+	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
 type UsersHandler struct {
-	//userRepository repositories.UserRepository
 	userService services.UserService
 }
 
@@ -24,7 +24,7 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 		err := c.ShouldBindJSON(&user)
 
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("invalid request", err))
 			return
 		}
 
@@ -44,7 +44,7 @@ func (uh *UsersHandler) PostUser() gin.HandlerFunc {
 
 		err := c.ShouldBindJSON(&user)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid request", err))
 			return
 		}
 
@@ -64,7 +64,7 @@ func (uh *UsersHandler) ChangePassword() gin.HandlerFunc {
 
 		err := c.ShouldBindJSON(&changePasswordRequest)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"}) // TODO
+			c.Error(errors.NewValidationErr("Invalid request", err))
 			return
 		}
 

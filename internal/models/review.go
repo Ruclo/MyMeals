@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-const MaxReviewPhotos = 3
-
 type Review struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
 	OrderID   uint           `gorm:"unique; not null; constraint: OnDelete:CASCADE, OnUpdate:CASCADE; references:orders(ID)" json:"order_id"`
