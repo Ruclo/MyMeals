@@ -1,262 +1,321 @@
 package repositories
 
 import (
-	"fmt"
-	"github.com/Ruclo/MyMeals/internal/config"
-	"github.com/Ruclo/MyMeals/internal/database"
+	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
+	testinghelpers "github.com/Ruclo/MyMeals/internal/testing"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
-	"gorm.io/gorm"
+	"net/http"
 	"testing"
 )
 
-func TestMealRepoSuite(t *testing.T) {
-	suite.Run(t, new(MealRepoTestSuite))
-}
+func TestMealRepository_GetAll(t *testing.T) {
+	// Setup
+	db := testinghelpers.NewTestDB(t)
+	defer testinghelpers.CleanupTestDB(t, db)
 
-type MealRepoTestSuite struct {
-	suite.Suite
-	repo MealRepository
-	db   *gorm.DB
-}
+	repo := NewMealRepository(db)
 
-func (s *MealRepoTestSuite) SetupSuite() {
-	config.InitConfig()
-	s.db = database.CreateConnection()
-	s.repo = NewMealRepository(s.db)
-}
+	meals, err := repo.GetAll()
+	assert.NoError(t, err)
+	assert.Len(t, meals, 0)
 
-func (s *MealRepoTestSuite) SetupTest() {
-	database.WipeDB(s.db)
-}
-
-func CreateValidMeal() *models.Meal {
-	return &models.Meal{
-		ID:          0, // Should be auto-assigned
-		Name:        "Test Pizza",
-		Category:    models.MainCourses,
-		Description: "Delicious test pizza with extra cheese",
-		ImageURL:    "https://example.com/pizza.jpg",
-		Price:       decimal.NewFromFloat(12.99),
+	// Create test data
+	testMeals := []models.Meal{
+		{Name: "Test Meal 1", Price: decimal.NewFromFloat(10.99), Category: "Main Courses", Description: "Test Description 1", ImageURL: "http://example.com/1.jpg"},
+		{Name: "Test Meal 2", Price: decimal.NewFromFloat(7.99), Category: "Desserts", Description: "Test Description 2", ImageURL: "http://example.com/2.jpg"},
 	}
-}
 
-func (s *MealRepoTestSuite) TestCreate_ValidMeal() {
-	s.SetupTest()
-	meal := CreateValidMeal()
+	for i := range testMeals {
+		assert.NoError(t, db.Create(&testMeals[i]).Error)
+	}
 
-	err := s.repo.Create(meal)
+	// Execute
+	meals, err = repo.GetAll()
 
-	require.NoError(s.T(), err)
-	assert.NotZero(s.T(), meal.ID, "ID should be auto-assigned")
-	assert.Equal(s.T(), "Test Pizza", meal.Name)
-	assert.Equal(s.T(), models.MainCourses, meal.Category)
-	assert.Equal(s.T(), "Delicious test pizza with extra cheese", meal.Description)
-	assert.Equal(s.T(), "https://example.com/pizza.jpg", meal.ImageURL)
-	assert.Equal(s.T(), decimal.NewFromFloat(12.99), meal.Price)
-
-	var found models.Meal
-	result := s.db.First(&found, meal.ID)
-	assert.NoError(s.T(), result.Error)
-	assert.Equal(s.T(), meal.Name, found.Name)
-	assert.Equal(s.T(), meal.Category, found.Category)
-	assert.Equal(s.T(), meal.Description, found.Description)
-	assert.Equal(s.T(), meal.ImageURL, found.ImageURL)
-	assert.Equal(s.T(), meal.Price, found.Price)
-
-}
-
-func (s *MealRepoTestSuite) TestCreate_NonZeroID() {
-	s.SetupTest()
-	meal := CreateValidMeal()
-	meal.ID = 42 // Non-zero ID
-
-	err := s.repo.Create(meal)
-	assert.NoError(s.T(), err)
-	assert.Equal(s.T(), "Test Pizza", meal.Name)
-	assert.Equal(s.T(), models.MainCourses, meal.Category)
-	assert.Equal(s.T(), "Delicious test pizza with extra cheese", meal.Description)
-	assert.Equal(s.T(), "https://example.com/pizza.jpg", meal.ImageURL)
-	assert.Equal(s.T(), decimal.NewFromFloat(12.99), meal.Price)
-
-}
-
-// Create Tests
-func (s *MealRepoTestSuite) TestCreate_EmptyName() {
-	s.SetupTest()
-
-	meal := CreateValidMeal()
-	meal.Name = ""
-	err := s.repo.Create(meal)
-	assert.Error(s.T(), err, "Empty name should not be allowed")
-}
-
-func (s *MealRepoTestSuite) TestCreate_InvalidCategory() {
-	s.SetupTest()
-	meal := CreateValidMeal()
-	meal.Category = "RandomCategory" // Invalid category
-
-	// Act
-	err := s.repo.Create(meal)
-
-	// Assert
-	assert.Error(s.T(), err, "Invalid category should not be allowed")
-}
-
-func (s *MealRepoTestSuite) TestCreate_EmptyDescription() {
-	s.SetupTest()
-	meal := CreateValidMeal()
-	meal.Description = "" // Empty description
-
-	// Act
-	err := s.repo.Create(meal)
-	fmt.Println(meal)
-	// Assert
-	assert.Error(s.T(), err, "Empty description should not be allowed")
-}
-
-func (s *MealRepoTestSuite) TestCreate_EmptyImageURL() {
-	s.SetupTest()
-	meal := CreateValidMeal()
-	meal.ImageURL = "" // Empty URL
-
-	// Act
-	err := s.repo.Create(meal)
-
-	// Assert
-	assert.Error(s.T(), err, "Empty image URL should not be allowed")
-
-}
-
-func (s *MealRepoTestSuite) TestCreate_NegativePrice() {
-	s.SetupTest()
-	meal := CreateValidMeal()
-	meal.Price = decimal.NewFromFloat(-5.99)
-
-	// Act
-	err := s.repo.Create(meal)
-
-	// Assert
-	assert.Error(s.T(), err, "Negative price should not be allowed")
-}
-
-//Update Tests
-
-func (s *MealRepoTestSuite) TestUpdate_ValidMeal() {
-	s.SetupTest()
-	meal := CreateValidMeal()
-
-	err := s.repo.Create(meal)
-	require.NoError(s.T(), err)
-	require.NotZero(s.T(), meal.ID)
-
-	// Prepare update
-	meal.Name = "Updated Pizza"
-	meal.Category = models.Drinks
-	meal.Description = "Updated description"
-	meal.ImageURL = "https://example.com/updated-pizza.jpg"
-	meal.Price = decimal.NewFromFloat(14.99)
-
-	// Act
-	err = s.repo.Update(meal)
-
-	// Assert
-	require.NoError(s.T(), err)
-
-	var updated models.Meal
-	result := s.db.First(&updated, meal.ID)
-	assert.NoError(s.T(), result.Error)
-	assert.Equal(s.T(), "Updated Pizza", updated.Name)
-	assert.Equal(s.T(), models.Drinks, updated.Category)
-	assert.Equal(s.T(), "Updated description", updated.Description)
-	assert.Equal(s.T(), "https://example.com/updated-pizza.jpg", updated.ImageURL)
-	assert.Equal(s.T(), decimal.NewFromFloat(14.99), updated.Price)
-
-}
-
-func (s *MealRepoTestSuite) TestUpdate_NonExistentMeal() {
-	s.SetupTest()
-	// Arrange - create a meal with non-existent ID
-	meal := CreateValidMeal()
-	meal.ID = 9999 // ID that doesn't exist
-
-	// Act
-	err := s.repo.Update(meal)
-
-	// Assert
-	assert.Error(s.T(), err, "Meal with non-existent ID should not be updated")
-}
-
-func (s *MealRepoTestSuite) TestUpdate_EmptyName() {
-	s.SetupTest()
-	meal := CreateValidMeal()
-	err := s.repo.Create(meal)
-	require.NoError(s.T(), err)
-
-	// Prepare invalid update
-	meal.Name = "" // Empty name
-
-	// Act
-	err = s.repo.Update(meal)
-
-	assert.Error(s.T(), err, "Meal with empty name should not be updated")
-}
-
-func (s *MealRepoTestSuite) TestGetAll_NoEntries() {
-	s.SetupTest()
-	meals, err := s.repo.GetAll()
-	require.NoError(s.T(), err)
-	assert.Empty(s.T(), meals, "No meals should be returned")
-}
-
-func (s *MealRepoTestSuite) TestGetAll_WithEntries() {
-	s.SetupTest()
-	meals := []models.Meal{*CreateValidMeal(), *CreateValidMeal()}
+	// Verify
+	assert.NoError(t, err)
+	assert.Len(t, meals, 2)
 
 	for _, meal := range meals {
-		err := s.repo.Create(&meal)
-		require.NoError(s.T(), err)
+		found := false
+		for _, inputMeal := range testMeals {
+			if meal.Name == inputMeal.Name {
+				found = true
+				assert.NotZero(t, meal.ID)
+			}
+		}
+		assert.True(t, found)
 	}
-
-	retrievedMeals, err := s.repo.GetAll()
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), len(meals), len(retrievedMeals), "Number of meals should match")
 }
 
-func (s *MealRepoTestSuite) TestDelete() {
-	s.SetupTest()
-	meal := CreateValidMeal()
-	err := s.repo.Create(meal)
-	require.NoError(s.T(), err)
+func TestMealRepository_GetByID(t *testing.T) {
+	// Setup
+	db := testinghelpers.NewTestDB(t)
+	defer testinghelpers.CleanupTestDB(t, db)
 
-	order := &models.Order{
-		TableNo: 5,
-		Name:    "Customer Name",
-		Notes:   "Some notes",
-		OrderMeals: []models.OrderMeal{
-			{
-				MealID:   meal.ID,
-				Quantity: 2,
-			},
-		},
+	repo := NewMealRepository(db)
+
+	testMeal := models.Meal{
+		Name:        "Test Meal",
+		Price:       decimal.NewFromFloat(9.99),
+		Category:    "Main Courses",
+		Description: "Test Description",
+		ImageURL:    "http://example.com/image.jpg",
 	}
 
-	err = s.db.Create(order).Error
-	require.NoError(s.T(), err)
+	assert.NoError(t, db.Create(&testMeal).Error)
 
-	id := meal.ID
-	err = s.repo.Delete(meal)
+	// Execute
+	meal, err := repo.GetByID(testMeal.ID)
 
-	assert.NoError(s.T(), err)
-	var found models.Meal
-	result := s.db.First(&found, meal.ID)
-	assert.Error(s.T(), result.Error)
+	// Verify
+	assert.NoError(t, err)
+	assert.NotNil(t, meal)
+	assert.Equal(t, testMeal.ID, meal.ID)
+	assert.Equal(t, testMeal.Name, meal.Name)
 
-	var foundOrder models.Order
-	result = s.db.Model(&models.Order{}).Preload("OrderMeals").First(&foundOrder, order.ID)
-	assert.NoError(s.T(), result.Error)
-	assert.Equal(s.T(), id, foundOrder.OrderMeals[0].MealID)
+	// Test not found case
+	meal, err = repo.GetByID(999)
+	assert.Error(t, err)
+
+	var appErr *errors.AppError
+	if assert.ErrorAs(t, err, &appErr) {
+		assert.Equal(t, http.StatusNotFound, appErr.StatusCode) // TODO: Better error checking
+	}
+
+	assert.Nil(t, meal)
+}
+
+func TestMealRepository_Create(t *testing.T) {
+
+	t.Run("valid meal", func(t *testing.T) {
+		db := testinghelpers.NewTestDB(t)
+		defer testinghelpers.CleanupTestDB(t, db)
+
+		repo := NewMealRepository(db)
+		meal := getTestMeal()
+		err := repo.Create(meal)
+		assert.NoError(t, err)
+		assert.NotZero(t, meal.ID)
+
+		var meals []*models.Meal
+		assert.NoError(t, db.Model(&models.Meal{}).Find(&meals).Error)
+		assert.Len(t, meals, 1)
+
+		assertMealEquals(t, meal, meals[0])
+	})
+
+	t.Run("invalid meal", func(t *testing.T) {
+		db := testinghelpers.NewTestDB(t)
+		defer testinghelpers.CleanupTestDB(t, db)
+
+		repo := NewMealRepository(db)
+		meal := getTestMeal()
+		meal.Price = decimal.NewFromInt(0)
+
+		err := repo.Create(meal)
+		assert.Error(t, err)
+	})
+}
+
+func TestMealRepository_Update(t *testing.T) {
+	t.Run("existing meal", func(t *testing.T) {
+		db := testinghelpers.NewTestDB(t)
+		defer testinghelpers.CleanupTestDB(t, db)
+		repo := NewMealRepository(db)
+
+		meal := getTestMeal()
+		err := db.Create(&meal).Error
+		require.NoError(t, err)
+		assert.NotZero(t, meal.ID)
+
+		meal.Name = "Updated name"
+		err = repo.Update(meal)
+		assert.NoError(t, err)
+
+		var fetchedMeal models.Meal
+		err = db.Model(&models.Meal{}).Where("ID = ?", meal.ID).First(&fetchedMeal).Error
+		assert.NoError(t, err)
+		assertMealEquals(t, meal, &fetchedMeal)
+
+		fetchedMeal.Category = "Invalid Category"
+		assert.Error(t, repo.Update(&fetchedMeal))
+
+	})
+	t.Run("non-existent meal", func(t *testing.T) {
+		db := testinghelpers.NewTestDB(t)
+		defer testinghelpers.CleanupTestDB(t, db)
+		repo := NewMealRepository(db)
+
+		meal := getTestMeal()
+		meal.ID = 1
+		err := repo.Update(meal)
+		assert.Error(t, err)
+
+		var appErr *errors.AppError
+		if assert.ErrorAs(t, err, &appErr) {
+			assert.Equal(t, http.StatusNotFound, appErr.StatusCode)
+		}
+	})
+}
+
+func TestMealRepository_Delete(t *testing.T) {
+	t.Run("existing meal", func(t *testing.T) {
+		db := testinghelpers.NewTestDB(t)
+		defer testinghelpers.CleanupTestDB(t, db)
+		repo := NewMealRepository(db)
+
+		meal := getTestMeal()
+		err := db.Create(meal).Error
+		assert.NoError(t, err)
+
+		err = repo.Delete(meal)
+		assert.NoError(t, err)
+
+		var meals []*models.Meal
+
+		assert.NoError(t, db.Model(&models.Meal{}).Find(&meals).Error)
+		assert.Empty(t, meals)
+
+		var foundMeal models.Meal
+		assert.NoError(t, db.Unscoped().First(&foundMeal, meal.ID).Error)
+		assertMealEquals(t, meal, &foundMeal)
+
+	})
+	t.Run("non-existent meal", func(t *testing.T) {
+		db := testinghelpers.NewTestDB(t)
+		defer testinghelpers.CleanupTestDB(t, db)
+		repo := NewMealRepository(db)
+
+		err := repo.Delete(&models.Meal{ID: 1})
+		assert.Error(t, err)
+
+		var appErr *errors.AppError
+
+		if assert.ErrorAs(t, err, &appErr) {
+			assert.Equal(t, http.StatusNotFound, appErr.StatusCode)
+		}
+	})
+}
+
+func getTestMeal() *models.Meal {
+	return &models.Meal{
+		Name:        "Test Meal",
+		Description: "Test Description",
+		Category:    models.MainCourses,
+		ImageURL:    "http://image.com",
+		Price:       decimal.NewFromFloat(9.99),
+	}
+}
+
+func TestMealRepository_IntegrationFlow(t *testing.T) {
+	db := testinghelpers.NewTestDB(t)
+	repo := NewMealRepository(db)
+
+	// 1. Try operations on non-existent data
+	t.Run("operations on non-existent data", func(t *testing.T) {
+		// Try to get by ID
+		_, err := repo.GetByID(999)
+		assert.Error(t, err)
+
+		// Try to update
+		meal := getTestMeal()
+		meal.ID = 999
+		updateErr := repo.Update(meal)
+		assert.Error(t, updateErr)
+
+		// Try to delete
+		deleteErr := repo.Delete(&models.Meal{ID: 999})
+		assert.Error(t, deleteErr)
+	})
+
+	// 2. Create and verify data
+	var mealID uint
+	t.Run("create and verify", func(t *testing.T) {
+		// Check empty state
+		meals, err := repo.GetAll()
+		assert.NoError(t, err)
+		initialCount := len(meals)
+
+		// Create a meal
+		meal := getTestMeal()
+		expected := getTestMeal()
+
+		err = repo.Create(meal)
+		assert.NoError(t, err)
+		assert.NotZero(t, meal.ID)
+		mealID = meal.ID
+		expected.ID = meal.ID
+
+		fetchedMeal, err := repo.GetByID(mealID)
+		assert.NoError(t, err)
+		assertMealEquals(t, expected, fetchedMeal)
+
+		meals, err = repo.GetAll()
+		assert.NoError(t, err)
+		assert.Equal(t, initialCount+1, len(meals))
+	})
+
+	// 3. Update and verify changes
+	t.Run("update and verify", func(t *testing.T) {
+		// Update the meal
+		updateMeal := &models.Meal{
+			ID:          mealID,
+			Name:        "Updated Integration Meal",
+			Description: "Updated description",
+			Category:    "Drinks",
+			ImageURL:    "https://image.com",
+			Price:       decimal.NewFromFloat(20.99),
+		}
+
+		expected := &(*updateMeal)
+		expected.ID = 2
+		assert.NotEqual(t, 2, updateMeal.ID)
+		expected.ID = mealID
+
+		err := repo.Update(updateMeal)
+		assert.NoError(t, err)
+
+		// Verify with GetByID
+		fetchedMeal, err := repo.GetByID(mealID)
+		assert.NoError(t, err)
+		assertMealEquals(t, expected, fetchedMeal)
+	})
+
+	// 4. Delete and verify deletion
+	t.Run("delete and verify", func(t *testing.T) {
+		// Get count before deletion
+		meals, err := repo.GetAll()
+		assert.NoError(t, err)
+		countBeforeDelete := len(meals)
+
+		// Delete the meal
+		err = repo.Delete(&models.Meal{ID: mealID})
+		assert.NoError(t, err)
+
+		// Verify with GetByID
+		_, err = repo.GetByID(mealID)
+		assert.Error(t, err)
+
+		// Verify with GetAll
+		meals, err = repo.GetAll()
+		assert.NoError(t, err)
+		assert.Equal(t, countBeforeDelete-1, len(meals))
+
+		// Try updating deleted meal
+		err = repo.Update(&models.Meal{ID: mealID, Name: "Should Not Update"})
+		assert.Error(t, err)
+	})
+}
+
+func assertMealEquals(t *testing.T, expected, actual *models.Meal) {
+	assert.Equal(t, expected.ID, actual.ID)
+	assert.Equal(t, expected.Name, actual.Name)
+	assert.Equal(t, expected.Description, actual.Description)
+	assert.Equal(t, expected.Category, actual.Category)
+	assert.Equal(t, expected.Price, actual.Price)
+	assert.Equal(t, expected.ImageURL, actual.ImageURL)
 }

@@ -36,7 +36,7 @@ func (r *mealRepositoryImpl) GetAll() ([]models.Meal, error) {
 
 func (r *mealRepositoryImpl) GetByID(ID uint) (*models.Meal, error) {
 	var meal models.Meal
-	err := r.db.Model(&models.Meal{}).Where("ID = ?").First(&meal).Error
+	err := r.db.Model(&models.Meal{}).Where("ID = ?", ID).First(&meal).Error
 
 	if err == nil {
 		return &meal, nil

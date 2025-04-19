@@ -60,7 +60,7 @@ func (mh *MealsHandler) PutMeal() gin.HandlerFunc {
 			c.Error(errors.NewValidationErr("invalid request", err))
 			return
 		}
-
+		//TODO: Must be > 0
 		id := c.Param("mealID")
 		idUint, err := strconv.ParseUint(id, 10, 64)
 		if err != nil {
