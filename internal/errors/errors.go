@@ -2,10 +2,6 @@ package errors
 
 import (
 	"errors"
-	"fmt"
-	"github.com/jackc/pgx/v5/pgconn"
-	"gorm.io/gorm"
-	"log"
 	"net/http"
 )
 
@@ -41,6 +37,9 @@ func new(err error, message string, status int) *AppError {
 func NewNotFoundErr(message string, err error) *AppError {
 	return new(err, message, http.StatusNotFound)
 }
+func IsNotFoundErr(err error) bool {
+	return statusEquals(err, http.StatusNotFound)
+}
 
 func NewDuplicateErr(message string, err error) *AppError {
 	return new(err, message, http.StatusConflict)
@@ -61,12 +60,27 @@ func NewInternalServerErr(message string, err error) *AppError {
 func NewUnauthorizedErr(message string, err error) *AppError {
 	return new(err, message, http.StatusUnauthorized)
 }
+func IsUnauthorizedErr(err error) bool {
+	return statusEquals(err, http.StatusUnauthorized)
+}
 
 func NewAlreadyExistsErr(message string, err error) *AppError {
 	return new(err, message, http.StatusConflict)
 }
 
-func classifyError(err error) error {
+func IsAlreadyExistsErr(err error) bool {
+	return statusEquals(err, http.StatusConflict)
+}
+
+func statusEquals(err error, status int) bool {
+	var appError *AppError
+	if errors.As(err, &appError) {
+		return appError.StatusCode == status
+	}
+	return false
+}
+
+/*func classifyError(err error) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return NewNotFoundErr("Resource not found", err)
 	}
@@ -94,4 +108,4 @@ func classifyError(err error) error {
 	log.Println("Internal server error occured:", err.Error())
 
 	return NewInternalServerErr("Internal Server Error", err)
-}
+}*/

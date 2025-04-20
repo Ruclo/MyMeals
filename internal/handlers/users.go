@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
@@ -28,9 +29,15 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 			return
 		}
 
-		err = uh.userService.Login(c, &user)
+		loggedUser, err := uh.userService.Login(user.Username, user.Password)
 		if err != nil {
 			c.Error(err)
+			return
+		}
+
+		err = auth.SetStaffTokenCookie(loggedUser.Username, loggedUser.Role, c)
+		if err != nil {
+			c.Error(errors.NewInternalServerErr("Failed to create a cookie", err))
 			return
 		}
 
@@ -53,6 +60,7 @@ func (uh *UsersHandler) PostUser() gin.HandlerFunc {
 			c.Error(err)
 			return
 		}
+
 		c.Status(http.StatusCreated)
 	}
 }

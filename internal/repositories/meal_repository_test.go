@@ -1,8 +1,9 @@
-package repositories
+package repositories_test
 
 import (
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
+	"github.com/Ruclo/MyMeals/internal/repositories"
 	testinghelpers "github.com/Ruclo/MyMeals/internal/testing"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ func TestMealRepository_GetAll(t *testing.T) {
 	db := testinghelpers.NewTestDB(t)
 	defer testinghelpers.CleanupTestDB(t, db)
 
-	repo := NewMealRepository(db)
+	repo := repositories.NewMealRepository(db)
 
 	meals, err := repo.GetAll()
 	assert.NoError(t, err)
@@ -56,7 +57,7 @@ func TestMealRepository_GetByID(t *testing.T) {
 	db := testinghelpers.NewTestDB(t)
 	defer testinghelpers.CleanupTestDB(t, db)
 
-	repo := NewMealRepository(db)
+	repo := repositories.NewMealRepository(db)
 
 	testMeal := models.Meal{
 		Name:        "Test Meal",
@@ -77,7 +78,7 @@ func TestMealRepository_GetByID(t *testing.T) {
 	assert.Equal(t, testMeal.ID, meal.ID)
 	assert.Equal(t, testMeal.Name, meal.Name)
 
-	// Test not found case
+	// Non existant meal
 	meal, err = repo.GetByID(999)
 	assert.Error(t, err)
 
@@ -95,7 +96,7 @@ func TestMealRepository_Create(t *testing.T) {
 		db := testinghelpers.NewTestDB(t)
 		defer testinghelpers.CleanupTestDB(t, db)
 
-		repo := NewMealRepository(db)
+		repo := repositories.NewMealRepository(db)
 		meal := getTestMeal()
 		err := repo.Create(meal)
 		assert.NoError(t, err)
@@ -112,7 +113,7 @@ func TestMealRepository_Create(t *testing.T) {
 		db := testinghelpers.NewTestDB(t)
 		defer testinghelpers.CleanupTestDB(t, db)
 
-		repo := NewMealRepository(db)
+		repo := repositories.NewMealRepository(db)
 		meal := getTestMeal()
 		meal.Price = decimal.NewFromInt(0)
 
@@ -125,7 +126,7 @@ func TestMealRepository_Update(t *testing.T) {
 	t.Run("existing meal", func(t *testing.T) {
 		db := testinghelpers.NewTestDB(t)
 		defer testinghelpers.CleanupTestDB(t, db)
-		repo := NewMealRepository(db)
+		repo := repositories.NewMealRepository(db)
 
 		meal := getTestMeal()
 		err := db.Create(&meal).Error
@@ -148,7 +149,7 @@ func TestMealRepository_Update(t *testing.T) {
 	t.Run("non-existent meal", func(t *testing.T) {
 		db := testinghelpers.NewTestDB(t)
 		defer testinghelpers.CleanupTestDB(t, db)
-		repo := NewMealRepository(db)
+		repo := repositories.NewMealRepository(db)
 
 		meal := getTestMeal()
 		meal.ID = 1
@@ -166,7 +167,7 @@ func TestMealRepository_Delete(t *testing.T) {
 	t.Run("existing meal", func(t *testing.T) {
 		db := testinghelpers.NewTestDB(t)
 		defer testinghelpers.CleanupTestDB(t, db)
-		repo := NewMealRepository(db)
+		repo := repositories.NewMealRepository(db)
 
 		meal := getTestMeal()
 		err := db.Create(meal).Error
@@ -188,7 +189,7 @@ func TestMealRepository_Delete(t *testing.T) {
 	t.Run("non-existent meal", func(t *testing.T) {
 		db := testinghelpers.NewTestDB(t)
 		defer testinghelpers.CleanupTestDB(t, db)
-		repo := NewMealRepository(db)
+		repo := repositories.NewMealRepository(db)
 
 		err := repo.Delete(&models.Meal{ID: 1})
 		assert.Error(t, err)
@@ -213,7 +214,7 @@ func getTestMeal() *models.Meal {
 
 func TestMealRepository_IntegrationFlow(t *testing.T) {
 	db := testinghelpers.NewTestDB(t)
-	repo := NewMealRepository(db)
+	repo := repositories.NewMealRepository(db)
 
 	// 1. Try operations on non-existent data
 	t.Run("operations on non-existent data", func(t *testing.T) {

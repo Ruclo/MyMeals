@@ -116,13 +116,21 @@ func (os *orderService) AddMealToOrder(orderID, mealID, quantity uint) (*models.
 
 func (os *orderService) CreateReview(c *gin.Context, review *models.Review, photos []*multipart.FileHeader) error {
 	const MaxReviewPhotos = 3
-
 	if len(photos) > MaxReviewPhotos {
 		return errors.NewValidationErr("Too many review photos attached", nil)
 	}
 
+	order, err := os.orderRepository.GetByID(review.OrderID)
+	if err != nil {
+		return err
+	}
+
+	if order.Review != nil {
+		return errors.NewDuplicateErr("Order already has a review", nil)
+	}
+	
 	var results []*uploader.UploadResult
-	var err error
+
 	for _, photo := range photos {
 		var result *uploader.UploadResult
 		result, err = os.cloudinary.Upload.Upload(c, photo,

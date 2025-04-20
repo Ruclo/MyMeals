@@ -9,9 +9,11 @@ import (
 )
 
 type UserRepository interface {
+	WithTransaction(fn func(txRepo UserRepository) error) error
 	GetByUsername(username string) (*models.StaffMember, error)
 	Create(user *models.StaffMember) error
 	Update(user *models.StaffMember) error
+	Exists(username string) (bool, error)
 }
 
 func NewUserRepository(db *gorm.DB) UserRepository {
@@ -20,6 +22,42 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 type userRepositoryImpl struct {
 	db *gorm.DB
+}
+
+func (r *userRepositoryImpl) WithTransaction(fn func(txRepo UserRepository) error) error {
+	tx := r.db.Begin()
+
+	if tx.Error != nil {
+		return errors.NewInternalServerErr("Failed to start a transaction", tx.Error)
+	}
+	defer tx.Rollback()
+
+	txRepo := &userRepositoryImpl{db: tx}
+
+	if err := fn(txRepo); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return errors.NewInternalServerErr("Failed to commit transaction", err)
+	}
+
+	return nil
+}
+
+func (r *userRepositoryImpl) Exists(username string) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.StaffMember{}).
+		Where("username = ?", username).
+		Count(&count).
+		Error
+
+	if err != nil {
+		return false, errors.NewInternalServerErr("Failed to check if user exists", err)
+	}
+
+	return count > 0, nil
 }
 
 func (r *userRepositoryImpl) GetByUsername(username string) (*models.StaffMember, error) {
@@ -38,25 +76,8 @@ func (r *userRepositoryImpl) GetByUsername(username string) (*models.StaffMember
 }
 
 func (r *userRepositoryImpl) Create(user *models.StaffMember) error {
-	tx := r.db.Begin()
-	defer tx.Rollback()
-
-	var count int64
-	err := tx.Model(&user).Where("username = ?", user.Username).Count(&count).Error
-	if err != nil {
-		return errors.NewInternalServerErr(fmt.Sprintf("Failed to check user count with username %s", user.Username), err)
-	}
-
-	if count > 0 {
-		return errors.NewAlreadyExistsErr(fmt.Sprintf("User with username %s already exists", user.Username), nil)
-	}
-
-	if err = tx.Create(user).Error; err != nil {
+	if err := r.db.Create(user).Error; err != nil {
 		return errors.NewInternalServerErr(fmt.Sprintf("Failed to create user with username %s", user.Username), err)
-	}
-
-	if err = tx.Commit().Error; err != nil {
-		return errors.NewInternalServerErr(fmt.Sprintf("Failed to commit user with username %s", user.Username), err)
 	}
 	return nil
 }

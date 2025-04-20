@@ -1,17 +1,15 @@
 package services
 
 import (
-	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
-	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService interface {
 	Create(user *models.StaffMember) error
-	Login(ctx *gin.Context, user *models.StaffMember) error
+	Login(username, password string) (*models.StaffMember, error)
 	ChangePassword(username, oldPassword, newPassword string) error
 }
 
@@ -24,33 +22,40 @@ func NewUserService(userRepository repositories.UserRepository) UserService {
 }
 
 func (us *userService) Create(user *models.StaffMember) error {
+
+	// Check if user with username already exists
+	exists, err := us.userRepository.Exists(user.Username)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return errors.NewAlreadyExistsErr("User already exists", nil)
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return errors.NewInternalServerErr("failed to generate a hashed password", err)
 	}
 
 	user.Password = string(hashedPassword)
-	user.Role = models.AdminRole
+	user.Role = models.RegularStaffRole
 	return us.userRepository.Create(user)
 }
 
-func (us *userService) Login(c *gin.Context, user *models.StaffMember) error {
-	foundUser, err := us.userRepository.GetByUsername(user.Username)
+func (us *userService) Login(username, password string) (*models.StaffMember, error) {
+	foundUser, err := us.userRepository.GetByUsername(username)
 	if err != nil {
-		return errors.NewUnauthorizedErr("Failed to authorize", err)
+		return nil, errors.NewUnauthorizedErr("Failed to authorize", err)
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(password))
 	if err != nil {
-		return errors.NewUnauthorizedErr("Failed to authorize", err)
+		return nil, errors.NewUnauthorizedErr("Failed to authorize", err)
 	}
 
-	err = auth.SetStaffTokenCookie(foundUser.Username, foundUser.Role, c)
-	if err != nil {
-		return errors.NewInternalServerErr("Failed to create a cookie", err)
-	}
+	return foundUser, nil
 
-	return nil
 }
 
 func (us *userService) ChangePassword(username, oldPassword, newPassword string) error {

@@ -12,7 +12,6 @@ func ErrorHandler() gin.HandlerFunc {
 
 		if len(c.Errors) > 0 {
 			err := c.Errors.Last().Err
-			err = classifyError(err)
 			log.Printf("Error: %v", err.Error())
 
 			var appErr *AppError

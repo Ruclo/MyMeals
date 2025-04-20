@@ -23,6 +23,13 @@ type mealService struct {
 	cloudinary     *cloudinary.Cloudinary
 }
 
+func NewMealService(mealRepository repositories.MealRepository, cloudinary *cloudinary.Cloudinary) MealService {
+	return &mealService{
+		mealRepository: mealRepository,
+		cloudinary:     cloudinary,
+	}
+}
+
 func (ms *mealService) Create(c *gin.Context,
 	request dtos.CreateMealRequest,
 	photo *multipart.FileHeader) (*models.Meal, error) {

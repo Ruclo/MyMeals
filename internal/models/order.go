@@ -37,7 +37,7 @@ type OrderMeal struct {
 }
 
 func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {
-	om.Completed = 0
+	//om.Completed = 0
 	return nil
 }
 

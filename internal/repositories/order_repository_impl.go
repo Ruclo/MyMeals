@@ -26,7 +26,6 @@ func (r *orderRepositoryImpl) WithTransaction(fn func(txRepo OrderRepository) er
 	txRepo := &orderRepositoryImpl{db: tx}
 
 	if err := fn(txRepo); err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -86,19 +85,12 @@ func (r *orderRepositoryImpl) GetOrders(params OrderQueryParams) ([]*models.Orde
 }
 
 func (r *orderRepositoryImpl) Create(order *models.Order) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		err := tx.Create(order).Error
-		if err != nil {
-			return errors.NewInternalServerErr(fmt.Sprintf("Failed to create order %+v", order), nil)
-		}
-
-		err = tx.Preload("OrderMeals.Meal").First(order, order.ID).Error
-		if err != nil {
-			return errors.NewInternalServerErr(fmt.Sprintf("Failed to fetch the created order %+v", order), nil)
-		}
+	err := r.db.Create(order).Error
+	if err == nil {
 		return nil
-	})
+	}
 
+	return errors.NewInternalServerErr(fmt.Sprintf("Failed to create order %+v", order), nil)
 }
 
 func (r *orderRepositoryImpl) GetOrderMeal(orderID, mealID uint) (*models.OrderMeal, error) {
@@ -122,16 +114,12 @@ func (r *orderRepositoryImpl) CreateOrderMeal(orderMeal *models.OrderMeal) error
 		return nil
 	}
 
-	if stdErrors.Is(err, gorm.ErrDuplicatedKey) {
-		return errors.NewAlreadyExistsErr(fmt.Sprintf("order meal already exists %+v", orderMeal), err)
-	}
-
 	return errors.NewInternalServerErr(fmt.Sprintf("Failed to create order meal %+v", orderMeal), err)
 
 }
 
 func (r *orderRepositoryImpl) UpdateOrderMeal(orderMeal *models.OrderMeal) error {
-	res := r.db.Model(&models.OrderMeal{}).Updates(orderMeal)
+	res := r.db.Model(orderMeal).Updates(orderMeal)
 	if res.Error != nil {
 		return errors.NewInternalServerErr(fmt.Sprintf("Failed to update order meal %+v", orderMeal), res.Error)
 	}
@@ -147,10 +135,6 @@ func (r *orderRepositoryImpl) CreateReview(review *models.Review) error {
 
 	if err == nil {
 		return nil
-	}
-
-	if stdErrors.Is(err, gorm.ErrDuplicatedKey) {
-		return errors.NewDuplicateErr(fmt.Sprintf("Review for order id %d already exists", review.OrderID), err)
 	}
 
 	return errors.NewInternalServerErr(fmt.Sprintf("Failed to create a review %+v", review), nil)

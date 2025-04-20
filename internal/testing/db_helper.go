@@ -1,19 +1,22 @@
 package testing
 
 import (
+	"fmt"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"log"
 	"testing"
+	"time"
 )
 
 // NewTestDB creates an in-memory SQLite database for testing
 func NewTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", time.Now().UnixNano())), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
+	db.Exec("PRAGMA foreign_keys = ON")
 
 	// Migrate the schema
 	err = db.AutoMigrate(
@@ -21,7 +24,7 @@ func NewTestDB(t *testing.T) *gorm.DB {
 		&models.Order{},
 		&models.OrderMeal{},
 		&models.Review{},
-		// Add other models
+		&models.StaffMember{},
 	)
 	if err != nil {
 		t.Fatalf("Failed to migrate test database: %v", err)

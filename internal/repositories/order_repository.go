@@ -19,7 +19,5 @@ type OrderRepository interface {
 	GetOrderMeal(orderID, mealID uint) (*models.OrderMeal, error)
 	CreateOrderMeal(orderMeal *models.OrderMeal) error
 	UpdateOrderMeal(orderMeal *models.OrderMeal) error
-	//AddMealToOrder(orderID, mealID uint, quantity uint) (*models.Order, error)
 	CreateReview(review *models.Review) error
-	//MarkCompleted(orderId, mealID uint) (*models.Order, error)
 }
