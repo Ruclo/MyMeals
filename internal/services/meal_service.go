@@ -1,18 +1,16 @@
 package services
 
 import (
-	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
-	"github.com/cloudinary/cloudinary-go/v2"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+	"github.com/Ruclo/MyMeals/internal/storage"
 	"github.com/gin-gonic/gin"
 	"mime/multipart"
 )
 
 type MealService interface {
-	Create(*gin.Context, dtos.CreateMealRequest, *multipart.FileHeader) (*models.Meal, error)
+	Create(*gin.Context, *models.Meal, *multipart.FileHeader) error
 	Update(*models.Meal) error
 	Delete(uint) error
 	GetAll() ([]models.Meal, error)
@@ -20,40 +18,33 @@ type MealService interface {
 
 type mealService struct {
 	mealRepository repositories.MealRepository
-	cloudinary     *cloudinary.Cloudinary
+	imageStorage   storage.ImageStorage
 }
 
-func NewMealService(mealRepository repositories.MealRepository, cloudinary *cloudinary.Cloudinary) MealService {
+func NewMealService(mealRepository repositories.MealRepository, imageStorage storage.ImageStorage) MealService {
 	return &mealService{
 		mealRepository: mealRepository,
-		cloudinary:     cloudinary,
+		imageStorage:   imageStorage,
 	}
 }
 
 func (ms *mealService) Create(c *gin.Context,
-	request dtos.CreateMealRequest,
-	photo *multipart.FileHeader) (*models.Meal, error) {
-	result, err := ms.cloudinary.Upload.Upload(c, photo,
-		uploader.UploadParams{Transformation: "c_crop,h_1000,w_1000"})
+	meal *models.Meal,
+	photo *multipart.FileHeader) error {
+	result, err := ms.imageStorage.UploadCropped(c, photo, 1000, 1000)
 
 	if err != nil {
-		return nil, errors.NewInternalServerErr("Failed to upload photo", err)
+		return errors.NewInternalServerErr("Failed to upload photo", err)
 	}
 
-	meal := models.Meal{
-		Name:        request.Name,
-		Category:    request.Category,
-		Description: request.Description,
-		ImageURL:    result.SecureURL,
-		Price:       request.Price,
+	meal.ImageURL = result.URL
+
+	if err = ms.mealRepository.Create(meal); err != nil {
+		ms.imageStorage.Delete(c, result.PublicID)
+		return err
 	}
 
-	if err = ms.mealRepository.Create(&meal); err != nil {
-		ms.cloudinary.Upload.Destroy(c, uploader.DestroyParams{PublicID: result.PublicID})
-		return nil, err
-	}
-
-	return &meal, nil
+	return nil
 }
 
 func (ms *mealService) GetAll() ([]models.Meal, error) {

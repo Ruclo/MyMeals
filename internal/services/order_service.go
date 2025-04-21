@@ -6,8 +6,7 @@ import (
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
-	"github.com/cloudinary/cloudinary-go/v2"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+	"github.com/Ruclo/MyMeals/internal/storage"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"mime/multipart"
@@ -26,16 +25,16 @@ type OrderService interface {
 type orderService struct {
 	orderRepository repositories.OrderRepository
 	mealRepository  repositories.MealRepository
-	cloudinary      *cloudinary.Cloudinary
+	imageStorage    storage.ImageStorage
 }
 
 func NewOrderService(orderRepository repositories.OrderRepository,
 	mealRepository repositories.MealRepository,
-	cloudinary *cloudinary.Cloudinary) OrderService {
+	imageStorage storage.ImageStorage) OrderService {
 	return &orderService{
 		orderRepository: orderRepository,
 		mealRepository:  mealRepository,
-		cloudinary:      cloudinary,
+		imageStorage:    imageStorage,
 	}
 }
 
@@ -128,14 +127,12 @@ func (os *orderService) CreateReview(c *gin.Context, review *models.Review, phot
 	if order.Review != nil {
 		return errors.NewDuplicateErr("Order already has a review", nil)
 	}
-	
-	var results []*uploader.UploadResult
+
+	var results []*storage.ImageResult
 
 	for _, photo := range photos {
-		var result *uploader.UploadResult
-		result, err = os.cloudinary.Upload.Upload(c, photo,
-			uploader.UploadParams{Transformation: "c_limit,h_1920,w_1920"})
-
+		var result *storage.ImageResult
+		result, err = os.imageStorage.Upload(c, photo)
 		if err != nil {
 			break
 		}
@@ -145,16 +142,16 @@ func (os *orderService) CreateReview(c *gin.Context, review *models.Review, phot
 
 	if err != nil {
 		for _, result := range results {
-			os.cloudinary.Upload.Destroy(c, uploader.DestroyParams{PublicID: result.PublicID})
+			os.imageStorage.Delete(c, result.PublicID)
 		}
-		return errors.NewInternalServerErr("Failed to upload photo", err)
+		return err
 
 	}
 
 	var photoUrls []string
 
 	for _, result := range results {
-		photoUrls = append(photoUrls, result.SecureURL)
+		photoUrls = append(photoUrls, result.URL)
 	}
 
 	review.PhotoURLs = photoUrls
