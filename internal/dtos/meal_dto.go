@@ -11,3 +11,12 @@ type CreateMealRequest struct {
 	Description string              `form:"description" binding:"required, min=1"`
 	Price       decimal.Decimal     `form:"price" binding:"required"`
 }
+
+func (req *CreateMealRequest) ToModel() *models.Meal {
+	return &models.Meal{
+		Name:        req.Name,
+		Category:    req.Category,
+		Description: req.Description,
+		Price:       req.Price,
+	}
+}

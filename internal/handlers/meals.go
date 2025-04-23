@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	stdErrors "errors"
 	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
@@ -44,7 +45,7 @@ func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 		}
 
 		var meal *models.Meal
-		if meal, err = mh.mealService.Create(c, createMealRequest, photo); err != nil {
+		if err = mh.mealService.Create(c, meal, photo); err != nil {
 			c.Error(err)
 			return
 		}
@@ -55,21 +56,29 @@ func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 
 func (mh *MealsHandler) PutMeal() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var meal models.Meal
-		if err := c.ShouldBindJSON(&meal); err != nil {
+		var mealRequest dtos.CreateMealRequest
+		if err := c.ShouldBind(&mealRequest); err != nil {
 			c.Error(errors.NewValidationErr("invalid request", err))
 			return
 		}
-		//TODO: Must be > 0
+
 		id := c.Param("mealID")
 		idUint, err := strconv.ParseUint(id, 10, 64)
 		if err != nil {
 			c.Error(errors.NewValidationErr("Invalid meal id", err))
+			return
 		}
 
-		meal.ID = uint(idUint)
-		err = mh.mealService.Update(&meal)
+		photo, err := c.FormFile("photo")
+		if err != nil && !stdErrors.Is(err, http.ErrMissingFile) {
+			c.Error(errors.NewValidationErr("error processing the photo", err))
+			return
+		}
 
+		meal := mealRequest.ToModel()
+		meal.ID = uint(idUint)
+
+		err = mh.mealService.Update(c, meal, photo)
 		if err != nil {
 			c.Error(err)
 			return

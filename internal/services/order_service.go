@@ -1,13 +1,14 @@
 package services
 
 import (
+	"context"
 	stdErrors "errors"
 	"fmt"
 	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/events"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/Ruclo/MyMeals/internal/storage"
-	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"mime/multipart"
 	"time"
@@ -18,23 +19,26 @@ type OrderService interface {
 	GetAllPendingOrders() ([]*models.Order, error)
 	Create(order *models.Order) error
 	AddMealToOrder(orderID, mealID, quantity uint) (*models.Order, error)
-	CreateReview(c *gin.Context, review *models.Review, photos []*multipart.FileHeader) error
+	CreateReview(c context.Context, review *models.Review, photos []*multipart.FileHeader) error
 	MarkCompleted(orderID, mealID uint) (*models.Order, error)
 }
 
 type orderService struct {
-	orderRepository repositories.OrderRepository
-	mealRepository  repositories.MealRepository
-	imageStorage    storage.ImageStorage
+	orderRepository  repositories.OrderRepository
+	mealRepository   repositories.MealRepository
+	imageStorage     storage.ImageStorage
+	orderBroadcaster events.OrderBroadcaster
 }
 
 func NewOrderService(orderRepository repositories.OrderRepository,
 	mealRepository repositories.MealRepository,
-	imageStorage storage.ImageStorage) OrderService {
+	imageStorage storage.ImageStorage,
+	orderBroadcaster events.OrderBroadcaster) OrderService {
 	return &orderService{
-		orderRepository: orderRepository,
-		mealRepository:  mealRepository,
-		imageStorage:    imageStorage,
+		orderRepository:  orderRepository,
+		mealRepository:   mealRepository,
+		imageStorage:     imageStorage,
+		orderBroadcaster: orderBroadcaster,
 	}
 }
 
@@ -65,8 +69,14 @@ func (os *orderService) GetAllPendingOrders() ([]*models.Order, error) {
 }
 
 func (os *orderService) Create(order *models.Order) error {
-	return os.orderRepository.Create(order)
-	//TODO: broadcast
+	err := os.orderRepository.Create(order)
+	if err != nil {
+		return err
+	}
+
+	// No errors for now
+	os.orderBroadcaster.BroadcastOrder(order)
+	return nil
 }
 
 func (os *orderService) AddMealToOrder(orderID, mealID, quantity uint) (*models.Order, error) {
@@ -110,10 +120,11 @@ func (os *orderService) AddMealToOrder(orderID, mealID, quantity uint) (*models.
 		return nil, err
 	}
 
+	os.orderBroadcaster.BroadcastOrder(order)
 	return order, nil
 }
 
-func (os *orderService) CreateReview(c *gin.Context, review *models.Review, photos []*multipart.FileHeader) error {
+func (os *orderService) CreateReview(c context.Context, review *models.Review, photos []*multipart.FileHeader) error {
 	const MaxReviewPhotos = 3
 	if len(photos) > MaxReviewPhotos {
 		return errors.NewValidationErr("Too many review photos attached", nil)
@@ -184,6 +195,7 @@ func (os *orderService) MarkCompleted(orderID, mealID uint) (*models.Order, erro
 		return nil, err
 	}
 
+	os.orderBroadcaster.BroadcastOrder(order)
 	return order, err
 
 }

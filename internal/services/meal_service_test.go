@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Ruclo/MyMeals/internal/errors"
@@ -292,48 +293,133 @@ func (s *MealServiceTestSuite) TestGetAll() {
 	}
 }
 
-// TestUpdate tests the Update method
 func (s *MealServiceTestSuite) TestUpdate() {
 	price1999, _ := decimal.NewFromString("19.99")
+	ctx := context.Background()
 
 	testCases := []struct {
 		name           string
 		meal           *models.Meal
+		photo          *multipart.FileHeader
 		setupMock      func()
 		expectedError  bool
 		errorPredicate func(error) bool
 	}{
 		{
-			name: "Success",
+			name: "Success with photo update",
 			meal: &models.Meal{
 				ID:          1,
 				Name:        "Updated Meal",
 				Category:    "Updated Category",
 				Description: "Updated Description",
 				Price:       price1999,
-				ImageURL:    "updated-image.jpg",
+				ImageURL:    "old-image.jpg",
 			},
+			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
 			setupMock: func() {
+
+				// Mock deleting the old photo
+				s.mockImageStorage.On("Delete", mock.Anything, "old-image.jpg").Return(nil)
+
+				// Mock uploading the new photo
+				s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
+					Return(&storage.ImageResult{URL: "new-image.jpg", PublicID: "new-image"}, nil)
+
+				// Mock updating the meal
 				s.mockRepo.On("Update", mock.MatchedBy(func(meal *models.Meal) bool {
-					return meal.ID == 1 && meal.Name == "Updated Meal"
+					return meal.ID == 1 && meal.Name == "Updated Meal" && meal.ImageURL == "new-image.jpg"
 				})).Return(nil)
 			},
 			expectedError: false,
 		},
 		{
-			name: "DatabaseError",
+			name: "Success without photo update",
 			meal: &models.Meal{
-				ID:          1,
-				Name:        "Updated Meal",
+				ID:          2,
+				Name:        "Updated Meal No Photo",
 				Category:    "Updated Category",
 				Description: "Updated Description",
 				Price:       price1999,
+				ImageURL:    "",
 			},
+			photo: nil,
 			setupMock: func() {
+				// Mock updating the meal without changing the photo
+				s.mockRepo.On("Update", mock.MatchedBy(func(meal *models.Meal) bool {
+					return meal.ID == 2 && meal.Name == "Updated Meal No Photo" && meal.ImageURL == ""
+				})).Return(nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "Failed to delete old photo",
+			meal: &models.Meal{
+				ID:          3,
+				Name:        "Meal With Photo Delete Error",
+				Category:    "Category",
+				Description: "Description",
+				Price:       price1999,
+				ImageURL:    "old-image.jpg",
+			},
+			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
+			setupMock: func() {
+				// Mock failure to delete old photo
+				s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
+					Return(&storage.ImageResult{URL: "new-image.jpg", PublicID: "new-image"}, nil)
+				s.mockImageStorage.On("Delete", mock.Anything, "old-image.jpg").
+					Return(errors.NewInternalServerErr("Failed to delete old photo", nil))
+			},
+			expectedError: true,
+			errorPredicate: func(err error) bool {
+				return errors.IsInternalServerErr(err) && err.Error() == "Failed to delete old photo"
+			},
+		},
+		{
+			name: "Failed to upload new photo",
+			meal: &models.Meal{
+				ID:          4,
+				Name:        "Meal With Photo Upload Error",
+				Category:    "Category",
+				Description: "Description",
+				Price:       price1999,
+				ImageURL:    "old-image.jpg",
+			},
+			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
+			setupMock: func() {
+				// Mock successful delete but failed upload
+				s.mockImageStorage.On("Delete", mock.Anything, "old-image.jpg").Return(nil)
+				s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
+					Return(nil, errors.NewInternalServerErr("Failed to upload photo", nil))
+			},
+			expectedError: true,
+			errorPredicate: func(err error) bool {
+				return errors.IsInternalServerErr(err) && err.Error() == "Failed to upload photo"
+			},
+		},
+		{
+			name: "Database error",
+			meal: &models.Meal{
+				ID:          5,
+				Name:        "Meal With DB Error",
+				Category:    "Category",
+				Description: "Description",
+				Price:       price1999,
+				ImageURL:    "image.jpg",
+			},
+			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
+			setupMock: func() {
+				// Mock successful photo operations but failed database update
+				s.mockImageStorage.On("Delete", mock.Anything, "image.jpg").Return(nil)
+				s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
+					Return(&storage.ImageResult{URL: "new-image.jpg", PublicID: "new-image"}, nil)
+
 				dbErr := errors.NewInternalServerErr("Database error", nil)
 				s.mockRepo.On("Update", mock.AnythingOfType("*models.Meal")).Return(dbErr)
 			},
 			expectedError: true,
+			errorPredicate: func(err error) bool {
+				return errors.IsInternalServerErr(err) && err.Error() == "Database error"
+			},
 		},
 	}
 
@@ -356,7 +442,7 @@ func (s *MealServiceTestSuite) TestUpdate() {
 			}
 
 			// Act
-			err := s.mealService.Update(mealCopy)
+			err := s.mealService.Update(ctx, mealCopy, tc.photo)
 
 			// Assert
 			if tc.expectedError {

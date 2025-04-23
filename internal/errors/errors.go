@@ -56,6 +56,9 @@ func NewValidationErr(message string, err error) *AppError {
 func NewInternalServerErr(message string, err error) *AppError {
 	return new(err, message, http.StatusInternalServerError)
 }
+func IsInternalServerErr(err error) bool {
+	return statusEquals(err, http.StatusInternalServerError)
+}
 
 func NewUnauthorizedErr(message string, err error) *AppError {
 	return new(err, message, http.StatusUnauthorized)

@@ -1,17 +1,19 @@
 package services
 
 import (
+	"context"
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/Ruclo/MyMeals/internal/storage"
-	"github.com/gin-gonic/gin"
 	"mime/multipart"
 )
 
+const MealPhotoSize = 1000
+
 type MealService interface {
-	Create(*gin.Context, *models.Meal, *multipart.FileHeader) error
-	Update(*models.Meal) error
+	Create(context.Context, *models.Meal, *multipart.FileHeader) error
+	Update(context.Context, *models.Meal, *multipart.FileHeader) error
 	Delete(uint) error
 	GetAll() ([]models.Meal, error)
 }
@@ -28,10 +30,10 @@ func NewMealService(mealRepository repositories.MealRepository, imageStorage sto
 	}
 }
 
-func (ms *mealService) Create(c *gin.Context,
+func (ms *mealService) Create(c context.Context,
 	meal *models.Meal,
 	photo *multipart.FileHeader) error {
-	result, err := ms.imageStorage.UploadCropped(c, photo, 1000, 1000)
+	result, err := ms.imageStorage.UploadCropped(c, photo, MealPhotoSize, MealPhotoSize)
 
 	if err != nil {
 		return errors.NewInternalServerErr("Failed to upload photo", err)
@@ -51,7 +53,22 @@ func (ms *mealService) GetAll() ([]models.Meal, error) {
 	return ms.mealRepository.GetAll()
 }
 
-func (ms *mealService) Update(meal *models.Meal) error {
+func (ms *mealService) Update(c context.Context, meal *models.Meal, photo *multipart.FileHeader) error {
+
+	if photo != nil {
+		result, err := ms.imageStorage.UploadCropped(c, photo, MealPhotoSize, MealPhotoSize)
+		if err != nil {
+			return errors.NewInternalServerErr("Failed to upload photo", err)
+		}
+
+		err = ms.imageStorage.Delete(c, meal.ImageURL)
+		if err != nil {
+			return errors.NewInternalServerErr("Failed to delete old photo", err)
+		}
+
+		meal.ImageURL = result.URL
+	}
+
 	return ms.mealRepository.Update(meal)
 }
 

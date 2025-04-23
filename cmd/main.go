@@ -7,6 +7,8 @@ import (
 	"github.com/Ruclo/MyMeals/internal/events"
 	"github.com/Ruclo/MyMeals/internal/handlers"
 	"github.com/Ruclo/MyMeals/internal/repositories"
+	"github.com/Ruclo/MyMeals/internal/services"
+	"github.com/Ruclo/MyMeals/internal/storage"
 	cloudinary2 "github.com/cloudinary/cloudinary-go/v2"
 	"github.com/gin-gonic/gin"
 	"log"
@@ -16,20 +18,26 @@ func main() {
 	config.InitConfig()
 
 	db := database.InitDB()
-	orderEvents := events.NewServer()
+	sseServer := events.NewSSEServer()
 	cloudinary, err := cloudinary2.NewFromURL(config.ConfigInstance.CloudinaryUrl())
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	orderBroadcaster := sseServer.NewBroadcaster()
+	imageStorage := storage.NewCloudinaryStorage(cloudinary)
+
 	mealRepo := repositories.NewMealRepository(db)
 	orderRepo := repositories.NewOrderRepository(db)
 	userRepo := repositories.NewUserRepository(db)
-	broadcastingOrderRepo := repositories.NewBroadcastingOrderRepository(orderRepo, orderEvents.Message)
 
-	mealsHandler := handlers.NewMealsHandler(mealRepo, cloudinary)
-	ordersHandler := handlers.NewOrdersHandler(broadcastingOrderRepo, cloudinary)
-	usersHandler := handlers.NewUsersHandler(userRepo)
+	userService := services.NewUserService(userRepo)
+	mealService := services.NewMealService(mealRepo, imageStorage)
+	orderService := services.NewOrderService(orderRepo, mealRepo, imageStorage, orderBroadcaster)
+
+	mealsHandler := handlers.NewMealsHandler(mealService)
+	ordersHandler := handlers.NewOrdersHandler(orderService)
+	usersHandler := handlers.NewUsersHandler(userService)
 
 	r := gin.Default()
 	r.Use(errors.ErrorHandler())
@@ -54,7 +62,7 @@ func main() {
 	//staffRoutes.Use(auth.RequireAnyRole(models.RegularStaffRole, models.AdminRole))
 	{
 		staffRoutes.GET("/orders/pending", ordersHandler.GetPendingOrders())
-		staffRoutes.GET("/api/events/orders", orderEvents.Handler()...)
+		staffRoutes.GET("/api/events/orders", sseServer.Handler()...)
 		staffRoutes.PUT("/account/password", usersHandler.ChangePassword())
 		staffRoutes.PUT("/orders/:orderID/items/:mealID/status", ordersHandler.UpdateStatus())
 	}

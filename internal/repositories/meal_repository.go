@@ -59,7 +59,7 @@ func (r *mealRepositoryImpl) Create(meal *models.Meal) error {
 }
 
 func (r *mealRepositoryImpl) Update(meal *models.Meal) error {
-	result := r.db.Model(meal).Select("*").Updates(meal)
+	result := r.db.Model(meal).Updates(meal)
 	if result.Error != nil {
 		return errors.NewInternalServerErr("Failed to update meal", result.Error)
 	}
