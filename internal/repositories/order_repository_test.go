@@ -72,6 +72,8 @@ func TestOrderRepository_GetByID(t *testing.T) {
 	assert.NotNil(t, foundOrder.Review)
 	assert.Equal(t, review.Comment, foundOrder.Review.Comment)
 	assert.Equal(t, review.Rating, foundOrder.Review.Rating)
+	assert.NotNil(t, foundOrder.OrderMeals)
+	assert.NotZero(t, len(foundOrder.OrderMeals))
 }
 
 func TestOrderRepository_Create(t *testing.T) {
@@ -485,7 +487,6 @@ func TestOrderRepository_GetOrders(t *testing.T) {
 					assert.Equal(t, orderMeal.MealID, orderMeal.Meal.ID)
 
 					// Check meal name is populated via the AfterFind hook
-					assert.Equal(t, orderMeal.Meal.Name, orderMeal.MealName)
 				}
 
 				// Check review is loaded (may be nil if no review)

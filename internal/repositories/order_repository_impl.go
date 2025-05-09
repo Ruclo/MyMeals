@@ -39,7 +39,7 @@ func (r *orderRepositoryImpl) WithTransaction(fn func(txRepo OrderRepository) er
 func (r *orderRepositoryImpl) GetByID(orderID uint) (*models.Order, error) {
 	var order models.Order
 
-	err := r.db.Model(&models.Order{}).Where("ID = ?", orderID).Preload("OrderMeals").
+	err := r.db.Model(&models.Order{}).Where("ID = ?", orderID).
 		Preload("OrderMeals.Meal").
 		Preload("Review").First(&order).Error
 

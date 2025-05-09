@@ -2,14 +2,11 @@ package services
 
 import (
 	"context"
-	stdErrors "errors"
-	"fmt"
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/events"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/Ruclo/MyMeals/internal/storage"
-	"gorm.io/gorm"
 	"mime/multipart"
 	"time"
 )
@@ -18,7 +15,7 @@ type OrderService interface {
 	GetOrders(olderThan time.Time, pageSize uint) ([]*models.Order, error)
 	GetAllPendingOrders() ([]*models.Order, error)
 	Create(order *models.Order) error
-	AddMealToOrder(orderID, mealID, quantity uint) (*models.Order, error)
+	AddMealsToOrder(meals *[]models.OrderMeal) (*models.Order, error)
 	CreateReview(c context.Context, review *models.Review, photos []*multipart.FileHeader) error
 	MarkCompleted(orderID, mealID uint) (*models.Order, error)
 }
@@ -69,9 +66,21 @@ func (os *orderService) GetAllPendingOrders() ([]*models.Order, error) {
 }
 
 func (os *orderService) Create(order *models.Order) error {
-	err := os.orderRepository.Create(order)
-	if err != nil {
+	err := os.orderRepository.WithTransaction(func(tx repositories.OrderRepository) error {
+		err := tx.Create(order)
+		if err != nil {
+			return err
+		}
+
+		foundOrder, err := tx.GetByID(order.ID)
+		if err != nil {
+			return err
+		}
+		*order = *foundOrder
 		return err
+	})
+	if err != nil {
+		return nil
 	}
 
 	// No errors for now
@@ -79,40 +88,46 @@ func (os *orderService) Create(order *models.Order) error {
 	return nil
 }
 
-func (os *orderService) AddMealToOrder(orderID, mealID, quantity uint) (*models.Order, error) {
+func (os *orderService) AddMealsToOrder(meals *[]models.OrderMeal) (*models.Order, error) {
 
-	_, err := os.mealRepository.GetByID(mealID)
-	if err != nil {
-		return nil, err
+	if len(*meals) == 0 {
+		return nil, errors.NewValidationErr("No meals attached", nil)
+	}
+
+	for _, orderMeal := range *meals {
+		_, err := os.mealRepository.GetByID(orderMeal.MealID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var order *models.Order
 
-	err = os.orderRepository.WithTransaction(func(tx repositories.OrderRepository) error {
+	err := os.orderRepository.WithTransaction(func(tx repositories.OrderRepository) error {
 
-		orderMeal, err := tx.GetOrderMeal(orderID, mealID)
-		if err != nil && !stdErrors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.NewInternalServerErr(fmt.Sprintf("Failed to get order meal with order id %d and meal id %d", orderID, mealID), err)
+		for _, orderMeal := range *meals {
+			foundOrderMeal, err := tx.GetOrderMeal(orderMeal.OrderID, orderMeal.MealID)
+			if err != nil && !errors.IsNotFoundErr(err) {
+				return err
+			}
+
+			if foundOrderMeal != nil {
+				foundOrderMeal.Quantity += orderMeal.Quantity
+				err = tx.UpdateOrderMeal(foundOrderMeal)
+				if err != nil {
+					return err
+				}
+			} else {
+				orderMeal.Completed = 0
+
+				err = tx.CreateOrderMeal(&orderMeal)
+				if err != nil {
+					return err
+				}
+			}
 		}
-
-		if orderMeal != nil {
-			orderMeal.Quantity += quantity
-			return tx.UpdateOrderMeal(orderMeal)
-		}
-
-		orderMeal = &models.OrderMeal{
-			OrderID:   orderID,
-			MealID:    mealID,
-			Quantity:  quantity,
-			Completed: 0,
-		}
-
-		err = tx.CreateOrderMeal(orderMeal)
-		if err != nil {
-			return err
-		}
-
-		order, err = tx.GetByID(orderID)
+		var err error
+		order, err = tx.GetByID((*meals)[0].OrderID)
 		return err
 	})
 
@@ -166,7 +181,7 @@ func (os *orderService) CreateReview(c context.Context, review *models.Review, p
 	}
 
 	review.PhotoURLs = photoUrls
-
+	os.orderBroadcaster.BroadcastOrder(order)
 	return os.orderRepository.CreateReview(review)
 }
 

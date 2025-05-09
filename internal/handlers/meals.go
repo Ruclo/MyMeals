@@ -4,7 +4,6 @@ import (
 	stdErrors "errors"
 	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/errors"
-	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -44,7 +43,8 @@ func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 			return
 		}
 
-		var meal *models.Meal
+		meal := createMealRequest.ToModel()
+		
 		if err = mh.mealService.Create(c, meal, photo); err != nil {
 			c.Error(err)
 			return

@@ -111,11 +111,9 @@ func handler(c *gin.Context) {
 		fmt.Println("sending")
 
 		select {
-		case <-c.Done():
-			return false
 		case order := <-clientChan:
 			fmt.Println("ok")
-			c.SSEvent("order", order)
+			c.SSEvent("message", order)
 			fmt.Println(order)
 			c.Writer.Flush()
 			return true

@@ -11,9 +11,11 @@ import (
 type UserRepository interface {
 	WithTransaction(fn func(txRepo UserRepository) error) error
 	GetByUsername(username string) (*models.StaffMember, error)
+	GetByRole(role models.Role) ([]*models.StaffMember, error)
 	Create(user *models.StaffMember) error
 	Update(user *models.StaffMember) error
 	Exists(username string) (bool, error)
+	DeleteByUsername(username string) error
 }
 
 func NewUserRepository(db *gorm.DB) UserRepository {
@@ -92,5 +94,22 @@ func (r *userRepositoryImpl) Update(user *models.StaffMember) error {
 		return errors.NewNotFoundErr(fmt.Sprintf("no user with username %s found", user.Username), nil)
 	}
 
+	return nil
+}
+
+func (r *userRepositoryImpl) GetByRole(role models.Role) ([]*models.StaffMember, error) {
+	var users []*models.StaffMember
+	err := r.db.Where("role = ?", role).Find(&users).Error
+	if err != nil {
+		return nil, errors.NewInternalServerErr(fmt.Sprintf("Failed to get users with role %s", role), err)
+	}
+	return users, nil
+}
+
+func (r *userRepositoryImpl) DeleteByUsername(username string) error {
+	err := r.db.Where("username = ?", username).Delete(&models.StaffMember{}).Error
+	if err != nil {
+		return errors.NewInternalServerErr(fmt.Sprintf("Failed to delete user with username %s", username), err)
+	}
 	return nil
 }

@@ -11,6 +11,8 @@ type UserService interface {
 	Create(user *models.StaffMember) error
 	Login(username, password string) (*models.StaffMember, error)
 	ChangePassword(username, oldPassword, newPassword string) error
+	GetStaff() ([]*models.StaffMember, error)
+	DeleteUser(username string) error
 }
 
 type userService struct {
@@ -78,4 +80,21 @@ func (us *userService) ChangePassword(username, oldPassword, newPassword string)
 		Username: username,
 		Password: string(hashedPassword),
 	})
+}
+
+func (us *userService) GetStaff() ([]*models.StaffMember, error) {
+	return us.userRepository.GetByRole(models.RegularStaffRole)
+}
+
+func (us *userService) DeleteUser(username string) error {
+	exists, err := us.userRepository.Exists(username)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return errors.NewNotFoundErr("User not found", nil)
+	}
+
+	return us.userRepository.DeleteByUsername(username)
 }

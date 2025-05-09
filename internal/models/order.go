@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"fmt"
 	"gorm.io/gorm"
 	"time"
 )
@@ -28,31 +27,14 @@ func (o *Order) BeforeCreate(tx *gorm.DB) error {
 }
 
 type OrderMeal struct {
-	OrderID   uint   `gorm:"primaryKey" json:"order_id"`
-	MealID    uint   `gorm:"primaryKey" json:"meal_id" binding:"required"`
-	MealName  string `gorm:"-" json:"meal_name"`
-	Quantity  uint   `json:"quantity" binding:"required"`
-	Completed uint   `json:"completed"`
-	Meal      *Meal  `gorm:"foreignKey:MealID; preload:true" json:"-"`
+	OrderID   uint  `gorm:"primaryKey" json:"order_id"`
+	MealID    uint  `gorm:"primaryKey" json:"meal_id" binding:"required"`
+	Quantity  uint  `json:"quantity" binding:"required"`
+	Completed uint  `json:"completed"`
+	Meal      *Meal `gorm:"foreignKey:MealID; preload:true" json:"-"`
 }
 
 func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {
 	//om.Completed = 0
-	return nil
-}
-
-func (om *OrderMeal) AfterFind(db *gorm.DB) error {
-	fmt.Println("preloading")
-	fmt.Println(om.Meal)
-	/*	if om.Meal == nil {
-		if err := db.First(&om.Meal, om.MealID); err != nil {
-			return errors.New("nvm zjedz sa")
-		}
-	}*/
-
-	if om.Meal != nil {
-		om.MealName = om.Meal.Name
-	}
-
 	return nil
 }

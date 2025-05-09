@@ -5,13 +5,6 @@ import (
 	"net/http"
 )
 
-const (
-	postgresUniqueViolation = "23505"
-	postgresForeignKeyViol  = "23503"
-	postgresNotNullViol     = "23502"
-	postgresCheckViolation  = "23514"
-)
-
 type AppError struct {
 	Err        error
 	Message    string
@@ -82,33 +75,3 @@ func statusEquals(err error, status int) bool {
 	}
 	return false
 }
-
-/*func classifyError(err error) error {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return NewNotFoundErr("Resource not found", err)
-	}
-
-	fmt.Printf("%T", err)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case postgresUniqueViolation:
-			return NewDuplicateErr(fmt.Sprintf("%s already exists", pgErr.ColumnName), err)
-		case postgresForeignKeyViol:
-			return NewForeignKeyErr(fmt.Sprintf("Referenced %s does not exist", pgErr.ColumnName), err)
-		case postgresNotNullViol:
-			return NewValidationErr(fmt.Sprintf("Required field missing: %s", pgErr.ColumnName), err)
-		case postgresCheckViolation:
-			return NewValidationErr(fmt.Sprintf("Value violates check constraint: %s", pgErr.Detail), err)
-		}
-	}
-
-	var appError *AppError
-	if errors.As(err, &appError) {
-		return err
-	}
-
-	log.Println("Internal server error occured:", err.Error())
-
-	return NewInternalServerErr("Internal Server Error", err)
-}*/

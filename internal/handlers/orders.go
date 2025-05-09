@@ -40,14 +40,12 @@ func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 		}
 
 		orders, err := oh.orderService.GetOrders(olderThan, uint(pageSize))
-
-		// TODO: to dtos
 		if err != nil {
 			c.Error(err)
 			return
 		}
 
-		c.JSON(http.StatusOK, orders)
+		c.JSON(http.StatusOK, dtos.ToOrderReponseList(orders))
 
 	}
 }
@@ -61,7 +59,7 @@ func (oh *OrdersHandler) GetPendingOrders() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, orders)
+		c.JSON(http.StatusOK, dtos.ToOrderReponseList(orders))
 	}
 }
 
@@ -88,12 +86,12 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 			c.Error(errors.NewInternalServerErr("Failed to set the cookie", err))
 			return
 		}
-		//TODO: to DTO
-		c.JSON(http.StatusCreated, order)
+
+		c.JSON(http.StatusCreated, dtos.ToOrderResponse(order))
 	}
 }
 
-func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
+func (oh *OrdersHandler) PostOrderItems() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orderIdStr := c.Param("orderID")
 
@@ -103,22 +101,31 @@ func (oh *OrdersHandler) PostOrderItem() gin.HandlerFunc {
 			return
 		}
 
-		var orderItem dtos.OrderMealRequest
+		var orderItems []dtos.OrderMealRequest
 
-		err = c.ShouldBindJSON(&orderItem)
+		err = c.ShouldBindJSON(&orderItems)
 		if err != nil {
 			c.Error(errors.NewValidationErr("Invalid request", err))
 			return
 		}
 
-		order, err := oh.orderService.AddMealToOrder(uint(orderId), orderItem.MealID, orderItem.Quantity)
+		var orderMeals []models.OrderMeal
+
+		for _, orderItem := range orderItems {
+			orderMeals = append(orderMeals, models.OrderMeal{
+				OrderID:  uint(orderId),
+				MealID:   orderItem.MealID,
+				Quantity: orderItem.Quantity,
+			})
+		}
+
+		order, err := oh.orderService.AddMealsToOrder(&orderMeals)
 		if err != nil {
 			c.Error(err)
 			return
 		}
 
-		// TODO: status created ?, DTO
-		c.JSON(http.StatusOK, order)
+		c.JSON(http.StatusOK, dtos.ToOrderResponse(order))
 	}
 }
 
@@ -134,7 +141,7 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 		var review models.Review
 		err = c.ShouldBind(&review)
 		if err != nil {
-			c.Error(err)
+			c.Error(errors.NewValidationErr("Invalid request", err))
 			return
 		}
 
@@ -146,7 +153,7 @@ func (oh *OrdersHandler) PostOrderReview() gin.HandlerFunc {
 			c.Error(err)
 			return
 		}
-		// TODO DTO
+
 		c.Status(http.StatusCreated)
 	}
 }
@@ -175,6 +182,6 @@ func (oh *OrdersHandler) UpdateStatus() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, order)
+		c.JSON(http.StatusOK, dtos.ToOrderResponse(order))
 	}
 }

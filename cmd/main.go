@@ -1,11 +1,13 @@
 package main
 
 import (
+	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/database"
 	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/events"
 	"github.com/Ruclo/MyMeals/internal/handlers"
+	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/Ruclo/MyMeals/internal/storage"
@@ -39,6 +41,19 @@ func main() {
 	ordersHandler := handlers.NewOrdersHandler(orderService)
 	usersHandler := handlers.NewUsersHandler(userService)
 
+	regularStaff := models.StaffMember{
+		Username: "regular",
+		Password: "password",
+		Role:     models.RegularStaffRole,
+	}
+	admin := models.StaffMember{
+		Username: "admin",
+		Password: "password",
+		Role:     models.AdminRole,
+	}
+	userService.Create(&regularStaff)
+	userService.Create(&admin)
+
 	r := gin.Default()
 	r.Use(errors.ErrorHandler())
 	// Public routes
@@ -55,34 +70,36 @@ func main() {
 	r.POST("/api/orders", ordersHandler.PostOrder())
 
 	authorized := r.Group("/api")
-	//authorized.Use(auth.AuthMiddleware())
+	authorized.Use(auth.AuthMiddleware())
 
 	// AdminRole or RegularStaffRole routes
 	staffRoutes := authorized.Group("/")
-	//staffRoutes.Use(auth.RequireAnyRole(models.RegularStaffRole, models.AdminRole))
+	staffRoutes.Use(auth.RequireAnyRole(models.RegularStaffRole, models.AdminRole))
 	{
 		staffRoutes.GET("/orders/pending", ordersHandler.GetPendingOrders())
-		staffRoutes.GET("/api/events/orders", sseServer.Handler()...)
+		staffRoutes.GET("/events/orders", sseServer.Handler()...)
 		staffRoutes.PUT("/account/password", usersHandler.ChangePassword())
-		staffRoutes.PUT("/orders/:orderID/items/:mealID/status", ordersHandler.UpdateStatus())
+		staffRoutes.POST("/orders/:orderID/items/:mealID/status", ordersHandler.UpdateStatus())
 	}
 
 	// AdminRole only access
 	adminRoutes := authorized.Group("/")
-	//adminRoutes.Use(auth.RequireAnyRole(models.AdminRole))
+	adminRoutes.Use(auth.RequireAnyRole(models.AdminRole))
 	{
 		adminRoutes.POST("/meals", mealsHandler.PostMeal())
 		adminRoutes.PUT("/meals/:mealID", mealsHandler.PutMeal())
 		adminRoutes.DELETE("/meals/:mealID", mealsHandler.DeleteMeal())
 		adminRoutes.POST("/users", usersHandler.PostUser())
 		adminRoutes.GET("/orders", ordersHandler.GetOrders())
+		adminRoutes.GET("/users/staff", usersHandler.GetStaff())
+		adminRoutes.DELETE("/users/:username", usersHandler.DeleteUser())
 	}
 
 	// Order Creator access only
 	orderRoutes := authorized.Group("/orders/:orderID")
-	//orderRoutes.Use(auth.RequireOrderAccess())
+	orderRoutes.Use(auth.RequireOrderAccess())
 	{
-		orderRoutes.POST("/items", ordersHandler.PostOrderItem())
+		orderRoutes.POST("/items", ordersHandler.PostOrderItems())
 		orderRoutes.POST("/review", ordersHandler.PostOrderReview())
 	}
 
