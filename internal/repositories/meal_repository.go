@@ -59,13 +59,13 @@ func (r *mealRepositoryImpl) Create(meal *models.Meal) error {
 }
 
 func (r *mealRepositoryImpl) Update(meal *models.Meal) error {
-	result := r.db.Model(meal).Updates(meal)
-	if result.Error != nil {
-		return errors.NewInternalServerErr("Failed to update meal", result.Error)
+	err := r.db.Model(meal).Updates(meal).First(meal, meal.ID).Error
+	if stdErrors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.NewNotFoundErr(fmt.Sprintf("meal %s with id %d not found", meal.Name, meal.ID), err)
 	}
 
-	if result.RowsAffected == 0 {
-		return errors.NewNotFoundErr(fmt.Sprintf("meal %s with id %d not found", meal.Name, meal.ID), nil)
+	if err != nil {
+		return errors.NewInternalServerErr("Failed to update meal", err)
 	}
 
 	return nil
