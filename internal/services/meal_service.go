@@ -16,6 +16,7 @@ type MealService interface {
 	Update(context.Context, *models.Meal, *multipart.FileHeader) error
 	Delete(uint) error
 	GetAll() ([]models.Meal, error)
+	GetAllWithDeleted() ([]models.Meal, error)
 }
 
 type mealService struct {
@@ -53,23 +54,50 @@ func (ms *mealService) GetAll() ([]models.Meal, error) {
 	return ms.mealRepository.GetAll()
 }
 
+func (ms *mealService) GetAllWithDeleted() ([]models.Meal, error) {
+	return ms.mealRepository.GetAllWithDeleted()
+}
+
 func (ms *mealService) Update(c context.Context, meal *models.Meal, photo *multipart.FileHeader) error {
 
-	if photo != nil {
-		result, err := ms.imageStorage.UploadCropped(c, photo, MealPhotoSize, MealPhotoSize)
-		if err != nil {
-			return errors.NewInternalServerErr("Failed to upload photo", err)
-		}
-
-		err = ms.imageStorage.Delete(c, meal.ImageURL)
-		if err != nil {
-			return errors.NewInternalServerErr("Failed to delete old photo", err)
-		}
-
-		meal.ImageURL = result.URL
+	existingMeal, err := ms.mealRepository.GetByID(meal.ID)
+	if err != nil {
+		return err
 	}
 
-	return ms.mealRepository.Update(meal)
+	newMeal := models.Meal{
+		Name:        meal.Name,
+		Price:       meal.Price,
+		Description: meal.Description,
+		Category:    meal.Category,
+		ImageURL:    existingMeal.ImageURL,
+	}
+
+	err = ms.mealRepository.WithTransaction(func(tx repositories.MealRepository) error {
+		if photo != nil {
+			result, err := ms.imageStorage.UploadCropped(c, photo, MealPhotoSize, MealPhotoSize)
+			if err != nil {
+				return err
+			}
+
+			err = ms.imageStorage.Delete(c, meal.ImageURL)
+			if err != nil {
+				return err
+			}
+
+			newMeal.ImageURL = result.URL
+		}
+
+		if err := tx.Create(&newMeal); err != nil {
+			return err
+		}
+
+		return tx.Delete(existingMeal)
+
+	})
+
+	*meal = newMeal
+	return err
 }
 
 func (ms *mealService) Delete(id uint) error {

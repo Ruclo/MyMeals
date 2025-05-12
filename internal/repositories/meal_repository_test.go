@@ -7,7 +7,6 @@ import (
 	testinghelpers "github.com/Ruclo/MyMeals/internal/testing"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 )
@@ -122,7 +121,7 @@ func TestMealRepository_Create(t *testing.T) {
 	})
 }
 
-func TestMealRepository_Update(t *testing.T) {
+/*func TestMealRepository_Update(t *testing.T) {
 	t.Run("existing meal", func(t *testing.T) {
 		db := testinghelpers.NewTestDB(t)
 		defer testinghelpers.CleanupTestDB(t, db)
@@ -161,7 +160,7 @@ func TestMealRepository_Update(t *testing.T) {
 			assert.Equal(t, http.StatusNotFound, appErr.StatusCode)
 		}
 	})
-}
+}*/
 
 func TestMealRepository_Delete(t *testing.T) {
 	t.Run("existing meal", func(t *testing.T) {
@@ -222,12 +221,6 @@ func TestMealRepository_IntegrationFlow(t *testing.T) {
 		_, err := repo.GetByID(999)
 		assert.Error(t, err)
 
-		// Try to update
-		meal := getTestMeal()
-		meal.ID = 999
-		updateErr := repo.Update(meal)
-		assert.Error(t, updateErr)
-
 		// Try to delete
 		deleteErr := repo.Delete(&models.Meal{ID: 999})
 		assert.Error(t, deleteErr)
@@ -260,32 +253,6 @@ func TestMealRepository_IntegrationFlow(t *testing.T) {
 		assert.Equal(t, initialCount+1, len(meals))
 	})
 
-	// 3. Update and verify changes
-	t.Run("update and verify", func(t *testing.T) {
-		// Update the meal
-		updateMeal := &models.Meal{
-			ID:          mealID,
-			Name:        "Updated Integration Meal",
-			Description: "Updated description",
-			Category:    "Drinks",
-			ImageURL:    "https://image.com",
-			Price:       decimal.NewFromFloat(20.99),
-		}
-
-		expected := &(*updateMeal)
-		expected.ID = 2
-		assert.NotEqual(t, 2, updateMeal.ID)
-		expected.ID = mealID
-
-		err := repo.Update(updateMeal)
-		assert.NoError(t, err)
-
-		// Verify with GetByID
-		fetchedMeal, err := repo.GetByID(mealID)
-		assert.NoError(t, err)
-		assertMealEquals(t, expected, fetchedMeal)
-	})
-
 	// 4. Delete and verify deletion
 	t.Run("delete and verify", func(t *testing.T) {
 		// Get count before deletion
@@ -307,8 +274,6 @@ func TestMealRepository_IntegrationFlow(t *testing.T) {
 		assert.Equal(t, countBeforeDelete-1, len(meals))
 
 		// Try updating deleted meal
-		err = repo.Update(&models.Meal{ID: mealID, Name: "Should Not Update"})
-		assert.Error(t, err)
 	})
 }
 

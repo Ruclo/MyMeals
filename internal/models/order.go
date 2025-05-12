@@ -31,7 +31,7 @@ type OrderMeal struct {
 	MealID    uint  `gorm:"primaryKey" json:"meal_id" binding:"required"`
 	Quantity  uint  `json:"quantity" binding:"required"`
 	Completed uint  `json:"completed"`
-	Meal      *Meal `gorm:"foreignKey:MealID; preload:true" json:"-"`
+	Meal      *Meal `gorm:"foreignKey:MealID" json:"-"`
 }
 
 func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {

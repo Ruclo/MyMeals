@@ -56,15 +56,8 @@ func main() {
 
 	r := gin.Default()
 	r.Use(errors.ErrorHandler())
+	
 	// Public routes
-	r.LoadHTMLGlob("templates/*")
-
-	// Route to serve the HTML file
-	r.GET("/", func(c *gin.Context) {
-		c.HTML(200, "index.html", gin.H{
-			"title": "MyMeals",
-		})
-	})
 	r.GET("/api/meals", mealsHandler.GetMeals())
 	r.POST("/api/login", usersHandler.Login())
 	r.POST("/api/orders", ordersHandler.PostOrder())
@@ -86,6 +79,7 @@ func main() {
 	adminRoutes := authorized.Group("/")
 	adminRoutes.Use(auth.RequireAnyRole(models.AdminRole))
 	{
+		adminRoutes.GET("/meals/deleted", mealsHandler.GetMealsWithDeleted())
 		adminRoutes.POST("/meals", mealsHandler.PostMeal())
 		adminRoutes.PUT("/meals/:mealID", mealsHandler.PutMeal())
 		adminRoutes.DELETE("/meals/:mealID", mealsHandler.DeleteMeal())

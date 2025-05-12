@@ -29,6 +29,18 @@ func (mh *MealsHandler) GetMeals() gin.HandlerFunc {
 	}
 }
 
+func (mh *MealsHandler) GetMealsWithDeleted() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		meals, err := mh.mealService.GetAllWithDeleted()
+		if err != nil {
+			c.Error(err)
+			return
+		}
+
+		c.JSON(http.StatusOK, meals)
+	}
+}
+
 func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var createMealRequest dtos.CreateMealRequest
@@ -44,7 +56,7 @@ func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 		}
 
 		meal := createMealRequest.ToModel()
-		
+
 		if err = mh.mealService.Create(c, meal, photo); err != nil {
 			c.Error(err)
 			return

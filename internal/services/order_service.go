@@ -151,7 +151,7 @@ func (os *orderService) CreateReview(c context.Context, review *models.Review, p
 	}
 
 	if order.Review != nil {
-		return errors.NewDuplicateErr("Order already has a review", nil)
+		return errors.NewAlreadyExistsErr("Order already has a review", nil)
 	}
 
 	var results []*storage.ImageResult

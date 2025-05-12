@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"github.com/Ruclo/MyMeals/internal/repositories"
 	"testing"
 
 	"github.com/Ruclo/MyMeals/internal/errors"
@@ -304,6 +305,7 @@ func (s *MealServiceTestSuite) TestUpdate() {
 		setupMock      func()
 		expectedError  bool
 		errorPredicate func(error) bool
+		checkMeal      func(*models.Meal)
 	}{
 		{
 			name: "Success with photo update",
@@ -317,20 +319,57 @@ func (s *MealServiceTestSuite) TestUpdate() {
 			},
 			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
 			setupMock: func() {
+				existingMeal := &models.Meal{
+					ID:          1,
+					Name:        "Original Meal",
+					Category:    "Original Category",
+					Description: "Original Description",
+					Price:       decimal.NewFromFloat(9.99),
+					ImageURL:    "old-image.jpg",
+				}
+				s.mockRepo.On("GetByID", uint(1)).Return(existingMeal, nil)
 
-				// Mock deleting the old photo
-				s.mockImageStorage.On("Delete", mock.Anything, "old-image.jpg").Return(nil)
-
-				// Mock uploading the new photo
 				s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
 					Return(&storage.ImageResult{URL: "new-image.jpg", PublicID: "new-image"}, nil)
 
-				// Mock updating the meal
-				s.mockRepo.On("Update", mock.MatchedBy(func(meal *models.Meal) bool {
-					return meal.ID == 1 && meal.Name == "Updated Meal" && meal.ImageURL == "new-image.jpg"
-				})).Return(nil)
+				s.mockImageStorage.On("Delete", mock.Anything, "old-image.jpg").Return(nil)
+
+				// Mock transaction
+				s.mockRepo.On("WithTransaction", mock.AnythingOfType("func(repositories.MealRepository) error")).
+					Run(func(args mock.Arguments) {
+						// Execute the transaction function with our mock repo
+						txFunc := args.Get(0).(func(repositories.MealRepository) error)
+						txFunc(s.mockRepo)
+					}).Return(nil)
+
+				// Mock creating new meal
+				s.mockRepo.On("Create", mock.MatchedBy(func(meal *models.Meal) bool {
+					return meal.Name == "Updated Meal" &&
+						meal.Category == "Updated Category" &&
+						meal.Description == "Updated Description" &&
+						meal.ImageURL == "new-image.jpg" &&
+						meal.Price.Equal(price1999)
+				})).
+					Run(func(args mock.Arguments) {
+						// Set an ID on the new meal
+						newMeal := args.Get(0).(*models.Meal)
+						newMeal.ID = 2 // Simulate auto-increment ID
+					}).
+					Return(nil)
+
+				// Mock deleting the old meal
+				s.mockRepo.On("Delete", existingMeal).Return(nil)
 			},
 			expectedError: false,
+			checkMeal: func(meal *models.Meal) {
+				// Verify the input meal was updated with the new meal's properties
+				s.Equal("Updated Meal", meal.Name)
+				s.Equal(models.MealCategory("Updated Category"), meal.Category)
+				s.Equal("Updated Description", meal.Description)
+				s.Equal("new-image.jpg", meal.ImageURL)
+				s.True(price1999.Equal(meal.Price))
+				s.Equal(uint(2), meal.ID) // Should have new ID
+			},
 		},
 		{
 			name: "Success without photo update",
@@ -340,85 +379,185 @@ func (s *MealServiceTestSuite) TestUpdate() {
 				Category:    "Updated Category",
 				Description: "Updated Description",
 				Price:       price1999,
-				ImageURL:    "",
+				ImageURL:    "existing-image.jpg",
 			},
 			photo: nil,
 			setupMock: func() {
-				// Mock updating the meal without changing the photo
-				s.mockRepo.On("Update", mock.MatchedBy(func(meal *models.Meal) bool {
-					return meal.ID == 2 && meal.Name == "Updated Meal No Photo" && meal.ImageURL == ""
-				})).Return(nil)
+				// Mock getting the existing meal
+				existingMeal := &models.Meal{
+					ID:          2,
+					Name:        "Original Meal",
+					Category:    "Original Category",
+					Description: "Original Description",
+					Price:       decimal.NewFromFloat(9.99),
+					ImageURL:    "existing-image.jpg",
+				}
+				s.mockRepo.On("GetByID", uint(2)).Return(existingMeal, nil)
+
+				// Mock transaction
+				s.mockRepo.On("WithTransaction", mock.AnythingOfType("func(repositories.MealRepository) error")).
+					Run(func(args mock.Arguments) {
+						// Execute the transaction function with our mock repo
+						txFunc := args.Get(0).(func(repositories.MealRepository) error)
+						txFunc(s.mockRepo)
+					}).Return(nil)
+
+				// Mock creating new meal
+				s.mockRepo.On("Create", mock.MatchedBy(func(meal *models.Meal) bool {
+					return meal.Name == "Updated Meal No Photo" &&
+						meal.Category == "Updated Category" &&
+						meal.Description == "Updated Description" &&
+						meal.Price.Equal(price1999) &&
+						meal.ImageURL == "existing-image.jpg"
+				})).
+					Run(func(args mock.Arguments) {
+						newMeal := args.Get(0).(*models.Meal)
+						newMeal.ID = 3
+					}).
+					Return(nil)
+
+				s.mockRepo.On("Delete", existingMeal).Return(nil)
 			},
 			expectedError: false,
+			checkMeal: func(meal *models.Meal) {
+				s.Equal("Updated Meal No Photo", meal.Name)
+				s.Equal(models.MealCategory("Updated Category"), meal.Category)
+				s.Equal("Updated Description", meal.Description)
+				s.Equal(uint(3), meal.ID) // Should have new ID
+			},
 		},
 		{
-			name: "Failed to delete old photo",
+			name: "Meal not found",
+			meal: &models.Meal{
+				ID:          99,
+				Name:        "Nonexistent Meal",
+				Category:    "Category",
+				Description: "Description",
+				Price:       price1999,
+			},
+			photo: nil,
+			setupMock: func() {
+				// Mock meal not found
+				notFoundErr := errors.NewNotFoundErr("Meal not found", nil)
+				s.mockRepo.On("GetByID", uint(99)).Return(nil, notFoundErr)
+			},
+			expectedError: true,
+			errorPredicate: func(err error) bool {
+				return errors.IsNotFoundErr(err)
+			},
+		},
+		{
+			name: "Transaction error",
 			meal: &models.Meal{
 				ID:          3,
-				Name:        "Meal With Photo Delete Error",
-				Category:    "Category",
-				Description: "Description",
-				Price:       price1999,
-				ImageURL:    "old-image.jpg",
-			},
-			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
-			setupMock: func() {
-				// Mock failure to delete old photo
-				s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
-					Return(&storage.ImageResult{URL: "new-image.jpg", PublicID: "new-image"}, nil)
-				s.mockImageStorage.On("Delete", mock.Anything, "old-image.jpg").
-					Return(errors.NewInternalServerErr("Failed to delete old photo", nil))
-			},
-			expectedError: true,
-			errorPredicate: func(err error) bool {
-				return errors.IsInternalServerErr(err) && err.Error() == "Failed to delete old photo"
-			},
-		},
-		{
-			name: "Failed to upload new photo",
-			meal: &models.Meal{
-				ID:          4,
-				Name:        "Meal With Photo Upload Error",
-				Category:    "Category",
-				Description: "Description",
-				Price:       price1999,
-				ImageURL:    "old-image.jpg",
-			},
-			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
-			setupMock: func() {
-				// Mock successful delete but failed upload
-				s.mockImageStorage.On("Delete", mock.Anything, "old-image.jpg").Return(nil)
-				s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
-					Return(nil, errors.NewInternalServerErr("Failed to upload photo", nil))
-			},
-			expectedError: true,
-			errorPredicate: func(err error) bool {
-				return errors.IsInternalServerErr(err) && err.Error() == "Failed to upload photo"
-			},
-		},
-		{
-			name: "Database error",
-			meal: &models.Meal{
-				ID:          5,
-				Name:        "Meal With DB Error",
+				Name:        "Transaction Error Meal",
 				Category:    "Category",
 				Description: "Description",
 				Price:       price1999,
 				ImageURL:    "image.jpg",
 			},
-			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
+			photo: nil,
 			setupMock: func() {
-				// Mock successful photo operations but failed database update
-				s.mockImageStorage.On("Delete", mock.Anything, "image.jpg").Return(nil)
-				s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
-					Return(&storage.ImageResult{URL: "new-image.jpg", PublicID: "new-image"}, nil)
+				// Mock getting the existing meal
+				existingMeal := &models.Meal{
+					ID:          3,
+					Name:        "Original Meal",
+					Description: "Original Description",
+					Price:       decimal.NewFromFloat(9.99),
+					ImageURL:    "image.jpg",
+				}
+				s.mockRepo.On("GetByID", uint(3)).Return(existingMeal, nil)
 
-				dbErr := errors.NewInternalServerErr("Database error", nil)
-				s.mockRepo.On("Update", mock.AnythingOfType("*models.Meal")).Return(dbErr)
+				// Mock transaction error
+				s.mockRepo.On("WithTransaction", mock.AnythingOfType("func(repositories.MealRepository) error")).
+					Return(errors.NewInternalServerErr("Transaction failed", nil))
 			},
 			expectedError: true,
 			errorPredicate: func(err error) bool {
-				return errors.IsInternalServerErr(err) && err.Error() == "Database error"
+				return errors.IsInternalServerErr(err)
+			},
+		},
+		{
+			name: "Failed to create new meal",
+			meal: &models.Meal{
+				ID:          4,
+				Name:        "Create Error Meal",
+				Category:    "Category",
+				Description: "Description",
+				Price:       price1999,
+				ImageURL:    "image.jpg",
+			},
+			photo: nil,
+			setupMock: func() {
+				// Mock getting the existing meal
+				existingMeal := &models.Meal{
+					ID:          4,
+					Name:        "Original Meal",
+					Description: "Original Description",
+					Price:       decimal.NewFromFloat(9.99),
+					ImageURL:    "image.jpg",
+				}
+				s.mockRepo.On("GetByID", uint(4)).Return(existingMeal, nil)
+
+				// Mock transaction
+				s.mockRepo.On("WithTransaction", mock.AnythingOfType("func(repositories.MealRepository) error")).
+					Run(func(args mock.Arguments) {
+						// Execute the transaction function with our mock repo
+						txFunc := args.Get(0).(func(repositories.MealRepository) error)
+
+						// Inside transaction, Create returns an error
+						s.mockRepo.On("Create", mock.AnythingOfType("*models.Meal")).
+							Return(errors.NewInternalServerErr("Failed to create meal", nil))
+
+						// Call the function which should now return an error
+						txFunc(s.mockRepo)
+					}).Return(errors.NewInternalServerErr("Failed to create meal", nil))
+			},
+			expectedError: true,
+			errorPredicate: func(err error) bool {
+				return errors.IsInternalServerErr(err) && err.Error() == "Failed to create meal"
+			},
+		},
+		{
+			name: "Failed to upload new photo",
+			meal: &models.Meal{
+				ID:          5,
+				Name:        "Photo Upload Error Meal",
+				Category:    "Category",
+				Description: "Description",
+				Price:       price1999,
+				ImageURL:    "old-image.jpg",
+			},
+			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
+			setupMock: func() {
+				// Mock getting the existing meal
+				existingMeal := &models.Meal{
+					ID:          5,
+					Name:        "Original Meal",
+					Description: "Original Description",
+					Price:       decimal.NewFromFloat(9.99),
+					ImageURL:    "old-image.jpg",
+				}
+				s.mockRepo.On("GetByID", uint(5)).Return(existingMeal, nil)
+
+				// Mock transaction
+				s.mockRepo.On("WithTransaction", mock.AnythingOfType("func(repositories.MealRepository) error")).
+					Run(func(args mock.Arguments) {
+						// Execute the transaction function with our mock repo
+						txFunc := args.Get(0).(func(repositories.MealRepository) error)
+
+						// Inside transaction, upload fails
+						uploadErr := errors.NewInternalServerErr("Failed to upload photo", nil)
+						s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
+							Return(nil, uploadErr)
+
+						// Call the function which should return the upload error
+						txFunc(s.mockRepo)
+					}).Return(errors.NewInternalServerErr("Failed to upload photo", nil))
+			},
+			expectedError: true,
+			errorPredicate: func(err error) bool {
+				return errors.IsInternalServerErr(err) && err.Error() == "Failed to upload photo"
 			},
 		},
 	}
@@ -452,6 +591,9 @@ func (s *MealServiceTestSuite) TestUpdate() {
 				}
 			} else {
 				s.NoError(err)
+				if tc.checkMeal != nil {
+					tc.checkMeal(mealCopy)
+				}
 			}
 		})
 	}
@@ -542,12 +684,24 @@ func (m *MockMealRepository) Create(meal *models.Meal) error {
 	return args.Error(0)
 }
 
-func (m *MockMealRepository) Update(meal *models.Meal) error {
+func (m *MockMealRepository) Delete(meal *models.Meal) error {
 	args := m.Called(meal)
 	return args.Error(0)
 }
 
-func (m *MockMealRepository) Delete(meal *models.Meal) error {
-	args := m.Called(meal)
-	return args.Error(0)
+// WithTransaction implementation for the mock repository
+func (m *MockMealRepository) WithTransaction(fn func(txRepo repositories.MealRepository) error) error {
+	args := m.Called(fn)
+
+	if args.Get(0) != nil && args.Error(0) != nil {
+		return args.Error(0)
+	}
+
+	err := fn(m)
+
+	if args.Error(0) != nil {
+		return args.Error(0)
+	}
+
+	return err
 }

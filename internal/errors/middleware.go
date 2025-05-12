@@ -8,14 +8,18 @@ import (
 	"net/http"
 )
 
+// ErrorHandler handles errors and returns the appropriate response
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 
 		if len(c.Errors) > 0 {
+			// Get the last error
 			err := c.Errors.Last().Err
 			log.Printf("Error: %v", err.Error())
 
+			// Check if it's an AppError
+			// All errors should be wrapped in AppError
 			var appErr *AppError
 			if !stdErrors.As(err, &appErr) {
 				log.Printf("Unhandled error: %v", err.Error())
@@ -23,16 +27,19 @@ func ErrorHandler() gin.HandlerFunc {
 				return
 			}
 
-			var validationErrors validator.ValidationErrors
-			if stdErrors.As(appErr.Err, &validationErrors) {
+			// Check if it's a validation error
+			if IsValidationErr(appErr) {
+				var validationErrors validator.ValidationErrors
+				stdErrors.As(appErr.Err, &validationErrors)
 				var invalidFields []string
 
 				for _, err := range validationErrors {
 					invalidFields = append(invalidFields, err.Field())
 				}
 
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "invalidFields": invalidFields})
+				c.JSON(appErr.StatusCode, gin.H{"error": "Invalid request", "invalidFields": invalidFields})
 				return
+
 			}
 
 			c.JSON(appErr.StatusCode, appErr.Message)

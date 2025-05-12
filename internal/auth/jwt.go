@@ -2,10 +2,9 @@ package auth
 
 import (
 	"github.com/Ruclo/MyMeals/internal/config"
+	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"net/http"
 	"strconv"
 	"time"
 )
@@ -15,6 +14,10 @@ const (
 	StaffJwtExpirationTime    = 18 * time.Hour
 )
 
+// JWTType represents the type of JWT token. It can be either staff or customer.
+// The type is used to determine the type of claims in the token.
+// Staff JWT tokens hold information about authenticated staff members
+// Customer JWT tokens are used to authorize review postings and order modifications by anonymous customers.
 type JWTType string
 
 const (
@@ -24,8 +27,7 @@ const (
 
 // StaffClaims represents the claims in a staff JWT token
 type StaffClaims struct {
-	Username string      `json:"username"`
-	Role     models.Role `json:"role"`
+	Role models.Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -35,44 +37,35 @@ type CustomerClaims struct {
 	jwt.RegisteredClaims
 }
 
-// SetStaffTokenCookie generates a JWT token for staff members
-func SetStaffTokenCookie(username string, role models.Role, c *gin.Context) error {
+// GenerateStaffJWT generates a JWT token for staff members
+// and returns the encoded token, expiration time and error
+func GenerateStaffJWT(username string, role models.Role) (string, time.Time, error) {
+	expirationTime := time.Now().Add(StaffJwtExpirationTime)
+
 	claims := StaffClaims{
-		Username: username,
-		Role:     role,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(StaffJwtExpirationTime)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "mymeals-api",
-			Subject:   username,
-		},
+		Role:             role,
+		RegisteredClaims: newRegisteredClaims(username, expirationTime),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token.Header["typ"] = StaffJWT
-	encodedToken, err := token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
 
+	tokenStr, err := token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
 	if err != nil {
-		return err
+		return "", time.Time{}, errors.NewInternalServerErr("Failed to generate JWT token", err)
 	}
 
-	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("token", encodedToken, int(StaffJwtExpirationTime.Seconds()), "/", "", true, true)
-	return nil
+	return tokenStr, expirationTime, err
+
 }
 
-// SetCustomerTokenCookie generates a JWT token for customers
-func SetCustomerTokenCookie(orderID uint, c *gin.Context) error {
+// GenerateCustomerJWT generates a JWT token for anonymous customers
+// and returns the encoded token, expiration time and error
+func GenerateCustomerJWT(orderID uint) (string, time.Time, error) {
+	expirationTime := time.Now().Add(CustomerJwtExpirationTime)
 	claims := CustomerClaims{
-		OrderID: strconv.FormatUint(uint64(orderID), 10),
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(CustomerJwtExpirationTime)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "mymeals-api",
-			Subject:   "anonymous",
-		},
+		OrderID:          strconv.FormatUint(uint64(orderID), 10),
+		RegisteredClaims: newRegisteredClaims("anonymous", expirationTime),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -80,9 +73,22 @@ func SetCustomerTokenCookie(orderID uint, c *gin.Context) error {
 
 	encodedToken, err := token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
 	if err != nil {
-		return err
+		return "", time.Time{}, errors.NewInternalServerErr("Failed to generate a customer jwt", err)
 	}
-	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("token", encodedToken, int(CustomerJwtExpirationTime.Seconds()), "/", "", true, true)
-	return nil
+	return encodedToken, expirationTime, err
+}
+
+// getSecret returns the secret used to sign the JWT tokens.
+func getSecret(_ *jwt.Token) (interface{}, error) {
+	return config.ConfigInstance.JWTSecret(), nil
+}
+
+func newRegisteredClaims(subject string, expirationTime time.Time) jwt.RegisteredClaims {
+	return jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(expirationTime),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		Issuer:    "mymeals-api",
+		Subject:   subject,
+	}
 }

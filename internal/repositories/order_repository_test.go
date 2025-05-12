@@ -4,6 +4,7 @@ import (
 	"github.com/Ruclo/MyMeals/internal/errors"
 	testinghelpers "github.com/Ruclo/MyMeals/internal/testing"
 	"gorm.io/gorm"
+	"slices"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -74,6 +75,7 @@ func TestOrderRepository_GetByID(t *testing.T) {
 	assert.Equal(t, review.Rating, foundOrder.Review.Rating)
 	assert.NotNil(t, foundOrder.OrderMeals)
 	assert.NotZero(t, len(foundOrder.OrderMeals))
+	assert.NotNil(t, foundOrder.OrderMeals[0].Meal)
 }
 
 func TestOrderRepository_Create(t *testing.T) {
@@ -280,7 +282,6 @@ func TestOrderRepository_GetOrders(t *testing.T) {
 	// Set up the test database
 	db := testinghelpers.NewTestDB(t)
 	repo := repositories.NewOrderRepository(db)
-
 	// Create test meals
 	meals := []*models.Meal{
 		getTestMeal(),
@@ -397,14 +398,14 @@ func TestOrderRepository_GetOrders(t *testing.T) {
 	}
 	require.NoError(t, db.Create(order5).Error)
 	assert.NotZero(t, order5.CreatedAt)
-
 	order5.Review = createReview(t, db, order5.ID, 5, "Excellent service!")
+
 	orderedOrders = append(orderedOrders, order5)
+	slices.Reverse(orderedOrders)
 	// Test cases
 	testCases := []struct {
 		name           string
 		params         repositories.OrderQueryParams
-		expectedCount  int
 		expectedOrders []*models.Order
 	}{
 		{
@@ -456,6 +457,7 @@ func TestOrderRepository_GetOrders(t *testing.T) {
 
 	// Run test cases
 	for _, tc := range testCases {
+
 		t.Run(tc.name, func(t *testing.T) {
 			// Call the method
 			orders, err := repo.GetOrders(tc.params)
@@ -467,10 +469,9 @@ func TestOrderRepository_GetOrders(t *testing.T) {
 			assert.Len(t, orders, len(tc.expectedOrders))
 
 			// If no results expected, skip ID checks
-			if tc.expectedCount == 0 {
+			if len(tc.expectedOrders) == 0 {
 				return
 			}
-
 			// Verify order IDs match expected
 			for i := range orders {
 				assert.Equal(t, tc.expectedOrders[i].ID, orders[i].ID)
@@ -480,14 +481,6 @@ func TestOrderRepository_GetOrders(t *testing.T) {
 			for _, order := range orders {
 				// Check order meals are loaded
 				assert.NotEmpty(t, order.OrderMeals)
-
-				for _, orderMeal := range order.OrderMeals {
-					// Check meal relationship is loaded
-					assert.NotNil(t, orderMeal.Meal)
-					assert.Equal(t, orderMeal.MealID, orderMeal.Meal.ID)
-
-					// Check meal name is populated via the AfterFind hook
-				}
 
 				// Check review is loaded (may be nil if no review)
 				if order.ID == order5.ID {

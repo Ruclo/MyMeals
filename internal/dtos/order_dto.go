@@ -44,10 +44,9 @@ type OrderResponse struct {
 }
 
 type OrderMealResponse struct {
-	MealID    uint   `json:"meal_id"`
-	MealName  string `json:"meal_name"`
-	Quantity  uint   `json:"quantity"`
-	Completed uint   `json:"completed"`
+	MealID    uint `json:"meal_id"`
+	Quantity  uint `json:"quantity"`
+	Completed uint `json:"completed"`
 }
 
 func ToOrderResponse(order *models.Order) *OrderResponse {
@@ -57,6 +56,7 @@ func ToOrderResponse(order *models.Order) *OrderResponse {
 		Notes:     order.Notes,
 		CreatedAt: order.CreatedAt,
 		Items:     make([]OrderMealResponse, len(order.OrderMeals)),
+		Review:    order.Review,
 	}
 
 	for i, orderMeal := range order.OrderMeals {
@@ -69,7 +69,6 @@ func ToOrderResponse(order *models.Order) *OrderResponse {
 func ToOrderMealResponse(orderMeal *models.OrderMeal) *OrderMealResponse {
 	return &OrderMealResponse{
 		MealID:    orderMeal.MealID,
-		MealName:  orderMeal.Meal.Name,
 		Quantity:  orderMeal.Quantity,
 		Completed: orderMeal.Completed,
 	}

@@ -22,7 +22,7 @@ func NewOrdersHandler(orderService services.OrderService) *OrdersHandler {
 
 func (oh *OrdersHandler) GetOrders() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		pageSizeStr := c.DefaultQuery("pagesize", "10")
+		pageSizeStr := c.DefaultQuery("pageSize", "10")
 		pageSize, err := strconv.ParseUint(pageSizeStr, 10, 32)
 		if err != nil {
 			c.Error(errors.NewValidationErr("Invalid page size", err))
@@ -81,11 +81,14 @@ func (oh *OrdersHandler) PostOrder() gin.HandlerFunc {
 			return
 		}
 
-		err = auth.SetCustomerTokenCookie(order.ID, c)
+		token, expirationTime, err := auth.GenerateCustomerJWT(order.ID)
 		if err != nil {
-			c.Error(errors.NewInternalServerErr("Failed to set the cookie", err))
+			c.Error(err)
 			return
 		}
+
+		c.SetSameSite(http.SameSiteStrictMode)
+		c.SetCookie("token", token, int(time.Until(expirationTime).Seconds()), "/", "", true, true)
 
 		c.JSON(http.StatusCreated, dtos.ToOrderResponse(order))
 	}

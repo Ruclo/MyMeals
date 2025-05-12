@@ -9,10 +9,12 @@ import (
 )
 
 type MealRepository interface {
+	WithTransaction(fn func(txRepo MealRepository) error) error
 	GetAll() ([]models.Meal, error)
+	GetAllWithDeleted() ([]models.Meal, error)
 	GetByID(ID uint) (*models.Meal, error)
 	Create(meal *models.Meal) error
-	Update(meal *models.Meal) error
+	//Update(meal *models.Meal) error
 	Delete(meal *models.Meal) error
 }
 
@@ -24,11 +26,40 @@ type mealRepositoryImpl struct {
 	db *gorm.DB
 }
 
+func (r *mealRepositoryImpl) WithTransaction(fn func(txRepo MealRepository) error) error {
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return errors.NewInternalServerErr("Failed to start a transaction", tx.Error)
+	}
+	defer tx.Rollback()
+
+	txRepo := &mealRepositoryImpl{db: tx}
+
+	if err := fn(txRepo); err != nil {
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return errors.NewInternalServerErr("Failed to commit transaction", err)
+	}
+	return nil
+}
+
 func (r *mealRepositoryImpl) GetAll() ([]models.Meal, error) {
 	var meals []models.Meal
 
 	if err := r.db.Find(&meals).Error; err != nil {
 		return nil, errors.NewInternalServerErr("Failed to get all meals", err)
+	}
+
+	return meals, nil
+}
+
+func (r *mealRepositoryImpl) GetAllWithDeleted() ([]models.Meal, error) {
+	var meals []models.Meal
+
+	if err := r.db.Unscoped().Find(&meals).Error; err != nil {
+		return nil, errors.NewInternalServerErr("Failed to get all meals including deleted", err)
 	}
 
 	return meals, nil
@@ -58,7 +89,7 @@ func (r *mealRepositoryImpl) Create(meal *models.Meal) error {
 	return nil
 }
 
-func (r *mealRepositoryImpl) Update(meal *models.Meal) error {
+/*func (r *mealRepositoryImpl) Update(meal *models.Meal) error {
 	err := r.db.Model(meal).Updates(meal).First(meal, meal.ID).Error
 	if stdErrors.Is(err, gorm.ErrRecordNotFound) {
 		return errors.NewNotFoundErr(fmt.Sprintf("meal %s with id %d not found", meal.Name, meal.ID), err)
@@ -69,7 +100,7 @@ func (r *mealRepositoryImpl) Update(meal *models.Meal) error {
 	}
 
 	return nil
-}
+}*/
 
 func (r *mealRepositoryImpl) Delete(meal *models.Meal) error {
 	result := r.db.Delete(meal)

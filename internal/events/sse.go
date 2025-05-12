@@ -1,14 +1,14 @@
 package events
 
 import (
-	"fmt"
+	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/gin-gonic/gin"
 	"io"
 	"log"
 )
 
-type OrderChan chan *models.Order
+type OrderChan chan *dtos.OrderResponse
 
 type SSEServer struct {
 	// Events are pushed to this channel by the main events-gathering routine
@@ -22,8 +22,6 @@ type SSEServer struct {
 
 	// Total client connections
 	clients map[OrderChan]bool
-
-	exit chan bool
 }
 
 func NewSSEServer() *SSEServer {
@@ -47,6 +45,8 @@ func (s *SSEServer) listen() {
 		select {
 		// Add new available client
 		case client := <-s.register:
+			log.Println("New client connected")
+			log.Println(s.clients)
 			s.clients[client] = true
 
 		// Remove closed client
@@ -82,14 +82,11 @@ func (s *SSEServer) clientConnectMiddleware(c *gin.Context) {
 	s.register <- clientChan
 
 	defer func() {
-		// Drain client channel so that it does not block. Server may keep sending messages to this channel
-		go func() {
-			for range clientChan {
-			}
-		}()
-		// Send closed connection to event server
+		for range clientChan {
+		}
 		s.unregister <- clientChan
 	}()
+	// Send closed connection to event server
 
 	c.Set("clientChan", clientChan)
 
@@ -107,27 +104,28 @@ func headersMiddleware(c *gin.Context) {
 
 func handler(c *gin.Context) {
 	clientChan := c.MustGet("clientChan").(OrderChan)
+	done := c.Request.Context().Done()
 	c.Stream(func(w io.Writer) bool {
-		fmt.Println("sending")
-
 		select {
-		case order := <-clientChan:
-			fmt.Println("ok")
+		case <-done:
+			return false
+		case order, ok := <-clientChan:
+			if !ok {
+				return false
+			}
 			c.SSEvent("message", order)
-			fmt.Println(order)
-			c.Writer.Flush()
 			return true
-		}
 
+		}
 	})
 }
 
 type sseOrderBroadcaster struct {
-	broadcastChan chan *models.Order
+	broadcastChan OrderChan
 }
 
 // BroadcastOrder sends an order to the SSE message channel
 func (b *sseOrderBroadcaster) BroadcastOrder(order *models.Order) error {
-	b.broadcastChan <- order
+	b.broadcastChan <- dtos.ToOrderResponse(order)
 	return nil
 }

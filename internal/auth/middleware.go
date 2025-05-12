@@ -1,63 +1,63 @@
 package auth
 
 import (
-	"fmt"
+	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"net/http"
-
-	"github.com/Ruclo/MyMeals/internal/config"
-	"github.com/Ruclo/MyMeals/internal/models"
 )
 
-// AuthMiddleware creates Gin middleware for JWT authentication
+// AuthMiddleware makes sure token cookie is present and valid.
+// Parses the token and sets the appropriate claims on the context.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString, err := c.Cookie("token")
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing auth cookie"})
+			c.Error(errors.NewUnauthorizedErr("Missing auth cookie", err))
+			c.Abort()
 			return
 		}
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return config.ConfigInstance.JWTSecret(), nil
-		})
+		token, err := jwt.Parse(tokenString, getSecret)
+
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.Error(errors.NewUnauthorizedErr("Invalid or expired token", err))
+			c.Abort()
 			return
 		}
 
 		tokenType, ok := token.Header["typ"].(string)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token type"})
+			c.Error(errors.NewUnauthorizedErr("Invalid token type", nil))
+			c.Abort()
 			return
 		}
 
 		switch JWTType(tokenType) {
 		case StaffJWT:
 			staffClaims := &StaffClaims{}
-			token, err := jwt.ParseWithClaims(tokenString, staffClaims, func(token *jwt.Token) (interface{}, error) {
-				return config.ConfigInstance.JWTSecret(), nil
-			})
+			token, err = jwt.ParseWithClaims(tokenString, staffClaims, getSecret)
 
 			if err != nil || !token.Valid {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+				c.Error(errors.NewUnauthorizedErr("Invalid or expired token", err))
+				c.Abort()
 				return
 			}
+
 			c.Set("role", staffClaims.Role)
-			c.Set("username", staffClaims.Username)
+			c.Set("username", staffClaims.Subject)
 			c.Set("tokenType", StaffJWT)
 			c.Next()
 
 		case CustomerJWT:
 			customerClaims := &CustomerClaims{}
-			token, err := jwt.ParseWithClaims(tokenString, customerClaims, func(token *jwt.Token) (interface{}, error) {
-				return config.ConfigInstance.JWTSecret(), nil
-			})
+			token, err = jwt.ParseWithClaims(tokenString, customerClaims, getSecret)
 			if err != nil || !token.Valid {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+				c.Error(errors.NewUnauthorizedErr("Invalid or expired token", err))
+				c.Abort()
 				return
 			}
+
 			c.Set("orderID", customerClaims.OrderID)
 			c.Set("tokenType", CustomerJWT)
 			c.Next()
@@ -65,32 +65,33 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// RequireAnyRole creates middleware that checks if the user has any of the speciefied roles
+// RequireAnyRole middleware checks if the authenticated user has any of the specified roles
 func RequireAnyRole(roles ...models.Role) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenType, exists := c.Get("tokenType")
-		fmt.Println(tokenType)
+
 		if !exists || tokenType.(JWTType) != StaffJWT {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Staff access required"})
+			c.Error(errors.NewForbiddenErr("Staff access required", nil))
+			c.Abort()
 			return
 		}
 
 		userRole, exists := c.Get("role")
 		if !exists {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+			c.Error(errors.NewInternalServerErr("Missing role in context", nil))
+			c.Abort()
 			return
 		}
 
 		for _, role := range roles {
-
 			if userRole.(models.Role) == role {
 				c.Next()
 				return
 			}
 		}
 
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
+		c.Error(errors.NewForbiddenErr("Insufficient permissions", nil))
+		c.Abort()
 	}
 }
 
@@ -99,21 +100,24 @@ func RequireOrderAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenType, exists := c.Get("tokenType")
 		if !exists || tokenType != CustomerJWT {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Modification of this order is not allowed1"})
+			c.Error(errors.NewForbiddenErr("Only the creator of this order can modify it", nil))
+			c.Abort()
 			return
 		}
 
 		contextOrderID, exists := c.Get("orderID")
 
 		if !exists {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Modification of this order is not allowed2"})
+			c.Error(errors.NewInternalServerErr("Missing order id in context", nil))
+			c.Abort()
 			return
 		}
 
 		pathOrderID := c.Param("orderID")
 
 		if contextOrderID != pathOrderID {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Modification of this order is not allowed3"})
+			c.Error(errors.NewForbiddenErr("Only the creator of this order can modify it", nil))
+			c.Abort()
 			return
 		}
 

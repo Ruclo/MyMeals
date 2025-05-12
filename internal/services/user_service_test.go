@@ -322,3 +322,16 @@ func (m *MockUserRepository) Exists(username string) (bool, error) {
 	args := m.Called(username)
 	return args.Bool(0), args.Error(1)
 }
+
+func (m *MockUserRepository) GetByRole(role models.Role) ([]*models.StaffMember, error) {
+	args := m.Called(role)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.StaffMember), args.Error(1)
+}
+
+func (m *MockUserRepository) DeleteByUsername(username string) error {
+	args := m.Called(username)
+	return args.Error(0)
+}

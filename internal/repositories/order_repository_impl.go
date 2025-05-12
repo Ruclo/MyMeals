@@ -75,7 +75,7 @@ func (r *orderRepositoryImpl) GetOrders(params OrderQueryParams) ([]*models.Orde
 
 	query = query.Order("created_at DESC")
 
-	query = query.Preload("OrderMeals.Meal").Preload("Review")
+	query = query.Preload("OrderMeals").Preload("Review")
 
 	if err := query.Find(&orders).Error; err != nil {
 		return nil, errors.NewInternalServerErr(fmt.Sprintf("Failed to get orders with params %+v", params), nil)

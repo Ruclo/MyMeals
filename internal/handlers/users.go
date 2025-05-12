@@ -8,6 +8,7 @@ import (
 	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"time"
 )
 
 type UsersHandler struct {
@@ -35,11 +36,14 @@ func (uh *UsersHandler) Login() gin.HandlerFunc {
 			return
 		}
 
-		err = auth.SetStaffTokenCookie(loggedUser.Username, loggedUser.Role, c)
+		token, expiration, err := auth.GenerateStaffJWT(loggedUser.Username, loggedUser.Role)
 		if err != nil {
-			c.Error(errors.NewInternalServerErr("Failed to create a cookie", err))
+			c.Error(err)
 			return
 		}
+
+		c.SetSameSite(http.SameSiteStrictMode)
+		c.SetCookie("token", token, int(time.Until(expiration).Seconds()), "/", "", true, true)
 
 		response := dtos.ModelToUserResponse(loggedUser)
 		c.JSON(http.StatusOK, response)

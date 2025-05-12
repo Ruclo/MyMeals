@@ -34,16 +34,11 @@ func IsNotFoundErr(err error) bool {
 	return statusEquals(err, http.StatusNotFound)
 }
 
-func NewDuplicateErr(message string, err error) *AppError {
-	return new(err, message, http.StatusConflict)
-}
-
-func NewForeignKeyErr(message string, err error) *AppError {
-	return new(err, message, http.StatusBadRequest)
-}
-
 func NewValidationErr(message string, err error) *AppError {
 	return new(err, message, http.StatusBadRequest)
+}
+func IsValidationErr(err error) bool {
+	return statusEquals(err, http.StatusBadRequest)
 }
 
 func NewInternalServerErr(message string, err error) *AppError {
@@ -60,10 +55,16 @@ func IsUnauthorizedErr(err error) bool {
 	return statusEquals(err, http.StatusUnauthorized)
 }
 
+func NewForbiddenErr(message string, err error) *AppError {
+	return new(err, message, http.StatusForbidden)
+}
+func IsForbiddenErr(err error) bool {
+	return statusEquals(err, http.StatusForbidden)
+}
+
 func NewAlreadyExistsErr(message string, err error) *AppError {
 	return new(err, message, http.StatusConflict)
 }
-
 func IsAlreadyExistsErr(err error) bool {
 	return statusEquals(err, http.StatusConflict)
 }
