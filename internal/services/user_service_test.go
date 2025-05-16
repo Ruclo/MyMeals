@@ -1,7 +1,7 @@
 package services_test
 
 import (
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/Ruclo/MyMeals/internal/services"
@@ -39,7 +39,7 @@ func (s *UserServiceTestSuite) TestLogin() {
 		setupMock      func()
 		expectedError  bool
 		errorPredicate func(error) bool
-		checkUser      func(*models.StaffMember)
+		checkUser      func(*models.User)
 	}{
 		{
 			name:     "Success",
@@ -47,7 +47,7 @@ func (s *UserServiceTestSuite) TestLogin() {
 			password: "correctpassword",
 			setupMock: func() {
 				hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.DefaultCost)
-				mockUser := &models.StaffMember{
+				mockUser := &models.User{
 					Username: "testuser",
 					Password: string(hashedPassword),
 					Role:     models.AdminRole,
@@ -55,7 +55,7 @@ func (s *UserServiceTestSuite) TestLogin() {
 				s.mockRepo.On("GetByUsername", "testuser").Return(mockUser, nil)
 			},
 			expectedError: false,
-			checkUser: func(user *models.StaffMember) {
+			checkUser: func(user *models.User) {
 				s.Equal("testuser", user.Username)
 				s.Equal(models.AdminRole, user.Role)
 			},
@@ -66,7 +66,7 @@ func (s *UserServiceTestSuite) TestLogin() {
 			password: "wrongpassword",
 			setupMock: func() {
 				hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.DefaultCost)
-				mockUser := &models.StaffMember{
+				mockUser := &models.User{
 					Username: "testuser",
 					Password: string(hashedPassword),
 					Role:     models.AdminRole,
@@ -74,18 +74,18 @@ func (s *UserServiceTestSuite) TestLogin() {
 				s.mockRepo.On("GetByUsername", "testuser").Return(mockUser, nil)
 			},
 			expectedError:  true,
-			errorPredicate: errors.IsUnauthorizedErr,
+			errorPredicate: apperrors.IsUnauthorizedErr,
 		},
 		{
 			name:     "UserNotFound",
 			username: "nonexistentuser",
 			password: "anypassword",
 			setupMock: func() {
-				notFoundErr := errors.NewNotFoundErr("User not found", nil)
+				notFoundErr := apperrors.NewNotFoundErr("User not found", nil)
 				s.mockRepo.On("GetByUsername", "nonexistentuser").Return(nil, notFoundErr)
 			},
 			expectedError:  true,
-			errorPredicate: errors.IsUnauthorizedErr,
+			errorPredicate: apperrors.IsUnauthorizedErr,
 		},
 	}
 
@@ -127,26 +127,26 @@ func (s *UserServiceTestSuite) TestCreate() {
 	// Define test cases for Create method
 	testCases := []struct {
 		name           string
-		user           *models.StaffMember
+		user           *models.User
 		setupMock      func()
 		expectedError  bool
 		errorPredicate func(error) bool
 	}{
 		{
 			name: "Success",
-			user: &models.StaffMember{
+			user: &models.User{
 				Username: "newuser",
 				Password: "plainpassword",
 			},
 			setupMock: func() {
 				s.mockRepo.On("Exists", "newuser").Return(false, nil)
-				s.mockRepo.On("Create", mock.AnythingOfType("*models.StaffMember")).Return(nil)
+				s.mockRepo.On("Create", mock.AnythingOfType("*models.User")).Return(nil)
 			},
 			expectedError: false,
 		},
 		{
 			name: "UserAlreadyExists",
-			user: &models.StaffMember{
+			user: &models.User{
 				Username: "existinguser",
 				Password: "plainpassword",
 			},
@@ -154,18 +154,18 @@ func (s *UserServiceTestSuite) TestCreate() {
 				s.mockRepo.On("Exists", "existinguser").Return(true, nil)
 			},
 			expectedError:  true,
-			errorPredicate: errors.IsAlreadyExistsErr,
+			errorPredicate: apperrors.IsAlreadyExistsErr,
 		},
 		{
 			name: "RepositoryError",
-			user: &models.StaffMember{
+			user: &models.User{
 				Username: "erroruser",
 				Password: "plainpassword",
 			},
 			setupMock: func() {
 				s.mockRepo.On("Exists", "erroruser").Return(false, nil)
-				repoErr := errors.NewInternalServerErr("Database error", nil)
-				s.mockRepo.On("Create", mock.AnythingOfType("*models.StaffMember")).Return(repoErr)
+				repoErr := apperrors.NewInternalServerErr("Database error", nil)
+				s.mockRepo.On("Create", mock.AnythingOfType("*models.User")).Return(repoErr)
 			},
 			expectedError: true,
 		},
@@ -181,7 +181,7 @@ func (s *UserServiceTestSuite) TestCreate() {
 			tc.setupMock()
 
 			// Make a copy to avoid modifications between tests
-			userCopy := &models.StaffMember{
+			userCopy := &models.User{
 				Username: tc.user.Username,
 				Password: tc.user.Password,
 			}
@@ -222,13 +222,13 @@ func (s *UserServiceTestSuite) TestChangePassword() {
 			newPassword: "newpassword",
 			setupMock: func() {
 				hashedOldPassword, _ := bcrypt.GenerateFromPassword([]byte("oldpassword"), bcrypt.DefaultCost)
-				mockUser := &models.StaffMember{
+				mockUser := &models.User{
 					Username: "testuser",
 					Password: string(hashedOldPassword),
 					Role:     models.RegularStaffRole,
 				}
 				s.mockRepo.On("GetByUsername", "testuser").Return(mockUser, nil)
-				s.mockRepo.On("Update", mock.AnythingOfType("*models.StaffMember")).Return(nil)
+				s.mockRepo.On("Replace", mock.AnythingOfType("*models.User")).Return(nil)
 			},
 			expectedError: false,
 		},
@@ -239,7 +239,7 @@ func (s *UserServiceTestSuite) TestChangePassword() {
 			newPassword: "newpassword",
 			setupMock: func() {
 				hashedOldPassword, _ := bcrypt.GenerateFromPassword([]byte("oldpassword"), bcrypt.DefaultCost)
-				mockUser := &models.StaffMember{
+				mockUser := &models.User{
 					Username: "testuser",
 					Password: string(hashedOldPassword),
 					Role:     models.RegularStaffRole,
@@ -247,7 +247,7 @@ func (s *UserServiceTestSuite) TestChangePassword() {
 				s.mockRepo.On("GetByUsername", "testuser").Return(mockUser, nil)
 			},
 			expectedError:  true,
-			errorPredicate: errors.IsUnauthorizedErr,
+			errorPredicate: apperrors.IsUnauthorizedErr,
 		},
 		{
 			name:        "UserNotFound",
@@ -255,7 +255,7 @@ func (s *UserServiceTestSuite) TestChangePassword() {
 			oldPassword: "oldpassword",
 			newPassword: "newpassword",
 			setupMock: func() {
-				notFoundErr := errors.NewNotFoundErr("User not found", nil)
+				notFoundErr := apperrors.NewNotFoundErr("User not found", nil)
 				s.mockRepo.On("GetByUsername", "nonexistentuser").Return(nil, notFoundErr)
 			},
 			expectedError: true,
@@ -300,20 +300,20 @@ func (m *MockUserRepository) WithTransaction(fn func(repository repositories.Use
 	return fn(m)
 }
 
-func (m *MockUserRepository) Create(user *models.StaffMember) error {
+func (m *MockUserRepository) Create(user *models.User) error {
 	args := m.Called(user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) GetByUsername(username string) (*models.StaffMember, error) {
+func (m *MockUserRepository) GetByUsername(username string) (*models.User, error) {
 	args := m.Called(username)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*models.StaffMember), args.Error(1)
+	return args.Get(0).(*models.User), args.Error(1)
 }
 
-func (m *MockUserRepository) Update(user *models.StaffMember) error {
+func (m *MockUserRepository) Update(user *models.User) error {
 	args := m.Called(user)
 	return args.Error(0)
 }
@@ -323,12 +323,12 @@ func (m *MockUserRepository) Exists(username string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockUserRepository) GetByRole(role models.Role) ([]*models.StaffMember, error) {
+func (m *MockUserRepository) GetByRole(role models.Role) ([]*models.User, error) {
 	args := m.Called(role)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*models.StaffMember), args.Error(1)
+	return args.Get(0).([]*models.User), args.Error(1)
 }
 
 func (m *MockUserRepository) DeleteByUsername(username string) error {

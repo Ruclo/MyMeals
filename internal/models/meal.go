@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// MealCategory represents one of the 5 categories of meals.
 type MealCategory string
 
 // DB Initialisation
@@ -19,6 +20,7 @@ const (
 	Desserts    MealCategory = "Desserts"
 )
 
+// Valid checks if the MealCategory is one of the predefined valid categories, returning an error if invalid.
 func (c MealCategory) Valid() error {
 	switch c {
 	case Drinks, Starters, MainCourses, SideDishes, Desserts:
@@ -28,6 +30,7 @@ func (c MealCategory) Valid() error {
 	}
 }
 
+// Scan implements the sql.Scanner interface, allowing MealCategory to be scanned from database values.
 func (c *MealCategory) Scan(value interface{}) error {
 	if value == nil {
 		*c = ""
@@ -47,6 +50,7 @@ func (c *MealCategory) Scan(value interface{}) error {
 	return c.Valid()
 }
 
+// Value converts the MealCategory to a driver.Value for database storage, returning an error if the value is invalid.
 func (c MealCategory) Value() (driver.Value, error) {
 	if err := c.Valid(); err != nil {
 		return nil, err
@@ -55,11 +59,11 @@ func (c MealCategory) Value() (driver.Value, error) {
 }
 
 type Meal struct {
-	ID          uint            `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name        string          `gorm:"not null; check: name <> ''" json:"name" form:"name" binding:"required"`
-	Category    MealCategory    `gorm:"not null" json:"category" form:"category" binding:"required"`
-	Description string          `gorm:"not null; check: description <> ''" json:"description" form:"description" binding:"required"`
-	ImageURL    string          `gorm:"not null; check: image_url <> ''" json:"image_url"`
-	Price       decimal.Decimal `gorm:"type:numeric(10,2); check: price > 0" json:"price" form:"price" binding:"required"`
+	ID          uint            `gorm:"primaryKey;autoIncrement"`
+	Name        string          `gorm:"not null; check: name <> ''"`
+	Category    MealCategory    `gorm:"not null" json:"category"`
+	Description string          `gorm:"not null; check: description <> ''"`
+	ImageURL    string          `gorm:"not null; check: image_url <> ''"`
+	Price       decimal.Decimal `gorm:"type:numeric(10,2); check: price > 0"`
 	DeletedAt   gorm.DeletedAt  `json:"-"`
 }

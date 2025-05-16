@@ -1,7 +1,7 @@
 package repositories_test
 
 import (
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	testinghelpers "github.com/Ruclo/MyMeals/internal/testing"
 	"gorm.io/gorm"
 	"slices"
@@ -37,7 +37,7 @@ func TestOrderRepository_GetByID(t *testing.T) {
 
 	_, err := repo.GetByID(999)
 	assert.Error(t, err)
-	assert.True(t, errors.IsNotFoundErr(err))
+	assert.True(t, apperrors.IsNotFoundErr(err))
 
 	meal := getTestMeal()
 	require.NoError(t, db.Create(&meal).Error)
@@ -462,7 +462,7 @@ func TestOrderRepository_GetOrders(t *testing.T) {
 			// Call the method
 			orders, err := repo.GetOrders(tc.params)
 
-			// Check for errors
+			// Check for apperrors
 			assert.NoError(t, err)
 
 			// Check number of returned orders
@@ -563,7 +563,7 @@ func TestOrderRepository_WithTransaction(t *testing.T) {
 				return err
 			}
 
-			// 2. Update the same order meal
+			// 2. Replace the same order meal
 			orderMeal.Quantity = 5
 			return tx.UpdateOrderMeal(orderMeal)
 		})

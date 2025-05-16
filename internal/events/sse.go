@@ -5,13 +5,15 @@ import (
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/gin-gonic/gin"
 	"io"
-	"log"
 )
 
+// OrderChan is a channel for sending Orders.
 type OrderChan chan *dtos.OrderResponse
 
+// SSEServer is a server-sent events implementation that manages client connections and broadcasts messages.
+// It maintains channels for broadcasting events, registering new clients, and unregistering disconnected clients.
 type SSEServer struct {
-	// Events are pushed to this channel by the main events-gathering routine
+	// The orders sent to this channel get broadcasted to all clients connected to the SSE.
 	broadcast OrderChan
 
 	// New client connections
@@ -24,6 +26,7 @@ type SSEServer struct {
 	clients map[OrderChan]bool
 }
 
+// NewSSEServer initializes and returns a new SSEServer instance. It starts a goroutine which manages these channels.
 func NewSSEServer() *SSEServer {
 	server := &SSEServer{
 		broadcast:  make(OrderChan),
@@ -45,8 +48,6 @@ func (s *SSEServer) listen() {
 		select {
 		// Add new available client
 		case client := <-s.register:
-			log.Println("New client connected")
-			log.Println(s.clients)
 			s.clients[client] = true
 
 		// Remove closed client
@@ -54,14 +55,13 @@ func (s *SSEServer) listen() {
 			delete(s.clients, client)
 			close(client)
 
-		// Broadcast message to client
+		// Broadcast message to clients
 		case order := <-s.broadcast:
 			for client := range s.clients {
 				select {
 				case client <- order:
 
 				default:
-					log.Println("Failed to send message to client, disconnnecting client")
 					s.unregister <- client
 				}
 
@@ -70,6 +70,7 @@ func (s *SSEServer) listen() {
 	}
 }
 
+// Handler returns a gin.HandlersChain consisting of middlewares and a handler for managing SSE connections.
 func (s *SSEServer) Handler() gin.HandlersChain {
 	return gin.HandlersChain{headersMiddleware, s.clientConnectMiddleware, handler}
 }
@@ -120,6 +121,7 @@ func handler(c *gin.Context) {
 	})
 }
 
+// sseOrderBroadcaster implements the OrderBroadcaster interface
 type sseOrderBroadcaster struct {
 	broadcastChan OrderChan
 }

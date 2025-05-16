@@ -1,7 +1,7 @@
 package repositories_test
 
 import (
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	testinghelpers "github.com/Ruclo/MyMeals/internal/testing"
@@ -18,7 +18,7 @@ func TestUserRepository_GetByUsername(t *testing.T) {
 		defer testinghelpers.CleanupTestDB(t, db)
 
 		// Create a test user directly in the database
-		testUser := &models.StaffMember{
+		testUser := &models.User{
 			Username: "existinguser",
 			Password: "password123",
 		}
@@ -52,7 +52,7 @@ func TestUserRepository_GetByUsername(t *testing.T) {
 		assert.Error(t, err)
 
 		// Check that it's the right type of error
-		var appErr *errors.AppError
+		var appErr *apperrors.AppError
 		assert.ErrorAs(t, err, &appErr)
 		assert.Equal(t, http.StatusNotFound, appErr.StatusCode)
 	})
@@ -66,7 +66,7 @@ func TestUserRepository_Create(t *testing.T) {
 
 		repo := repositories.NewUserRepository(db)
 
-		newUser := &models.StaffMember{
+		newUser := &models.User{
 			Username: "newuser",
 			Password: "password123",
 		}
@@ -78,7 +78,7 @@ func TestUserRepository_Create(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify user was created in the database
-		var found models.StaffMember
+		var found models.User
 		result := db.Where("username = ?", "newuser").First(&found)
 		require.NoError(t, result.Error)
 		assert.Equal(t, "newuser", found.Username)
@@ -92,7 +92,7 @@ func TestUserRepository_Create(t *testing.T) {
 		defer testinghelpers.CleanupTestDB(t, db)
 
 		// Create a test user directly in the database
-		existingUser := &models.StaffMember{
+		existingUser := &models.User{
 			Username: "existinguser",
 			Password: "password123",
 		}
@@ -100,7 +100,7 @@ func TestUserRepository_Create(t *testing.T) {
 
 		repo := repositories.NewUserRepository(db)
 
-		duplicateUser := &models.StaffMember{
+		duplicateUser := &models.User{
 			Username: "existinguser", // Same username as existing user
 			Password: "newpassword",
 			Role:     models.AdminRole,
@@ -122,7 +122,7 @@ func TestUserRepository_Update(t *testing.T) {
 		defer testinghelpers.CleanupTestDB(t, db)
 
 		// Create a test user directly in the database
-		existingUser := &models.StaffMember{
+		existingUser := &models.User{
 			Username: "existinguser",
 			Password: "password123",
 			Role:     models.AdminRole,
@@ -131,7 +131,7 @@ func TestUserRepository_Update(t *testing.T) {
 
 		repo := repositories.NewUserRepository(db)
 
-		updatedUser := &models.StaffMember{
+		updatedUser := &models.User{
 			Username: "existinguser", // Same username to find the record
 			Password: "newpassword",
 		}
@@ -142,7 +142,7 @@ func TestUserRepository_Update(t *testing.T) {
 		// Verify
 		require.NoError(t, err)
 
-		var found models.StaffMember
+		var found models.User
 		result := db.Where("username = ?", "existinguser").First(&found)
 		require.NoError(t, result.Error)
 		assert.Equal(t, "existinguser", found.Username)
@@ -157,7 +157,7 @@ func TestUserRepository_Update(t *testing.T) {
 
 		repo := repositories.NewUserRepository(db)
 
-		nonExistingUser := &models.StaffMember{
+		nonExistingUser := &models.User{
 			Username: "nonexistinguser",
 			Password: "newpassword",
 		}
@@ -169,7 +169,7 @@ func TestUserRepository_Update(t *testing.T) {
 		assert.Error(t, err)
 
 		// Check that it's the right type of error
-		var appErr *errors.AppError
+		var appErr *apperrors.AppError
 		assert.ErrorAs(t, err, &appErr)
 		assert.Equal(t, http.StatusNotFound, appErr.StatusCode)
 	})
@@ -183,7 +183,7 @@ func TestUserRepository_Integration(t *testing.T) {
 	repo := repositories.NewUserRepository(db)
 
 	// 1. Create a new user
-	newUser := &models.StaffMember{
+	newUser := &models.User{
 		Username: "testintegration",
 		Password: "initialpassword",
 	}
@@ -192,7 +192,7 @@ func TestUserRepository_Integration(t *testing.T) {
 	require.NoError(t, err, "Should create user successfully")
 
 	// 2. Try to create the same user again
-	duplicateUser := &models.StaffMember{
+	duplicateUser := &models.User{
 		Username: "testintegration",
 		Password: "anotherpassword",
 		Role:     models.AdminRole,
@@ -208,7 +208,7 @@ func TestUserRepository_Integration(t *testing.T) {
 	assert.Equal(t, "initialpassword", foundUser.Password)
 	assert.Equal(t, models.RegularStaffRole, foundUser.Role)
 
-	// 4. Update the user
+	// 4. Replace the user
 	foundUser.Password = "updatedpassword"
 	foundUser.Role = models.AdminRole
 
@@ -227,12 +227,12 @@ func TestUserRepository_Integration(t *testing.T) {
 	require.Error(t, err, "Should error on non-existing user")
 	assert.Nil(t, nonExistingUser)
 
-	var appErr *errors.AppError
+	var appErr *apperrors.AppError
 	assert.ErrorAs(t, err, &appErr)
 	assert.Equal(t, http.StatusNotFound, appErr.StatusCode)
 
 	// 7. Try to update a non-existing user
-	badUser := &models.StaffMember{
+	badUser := &models.User{
 		Username: "nonexistinguser",
 		Password: "somepassword",
 		Role:     models.RegularStaffRole,

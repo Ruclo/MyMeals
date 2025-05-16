@@ -64,7 +64,7 @@ func (c *Config) CloudinaryUrl() string {
 //
 // The .env file should be located in the root directory of the project.
 //
-// The required environment variables are listed in .env.example
+// The required environment variables are listed in .env.example.
 func InitConfig() {
 	err := godotenv.Load()
 	if err != nil {

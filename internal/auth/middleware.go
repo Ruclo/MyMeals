@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -13,7 +13,7 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString, err := c.Cookie("token")
 		if err != nil {
-			c.Error(errors.NewUnauthorizedErr("Missing auth cookie", err))
+			c.Error(apperrors.NewUnauthorizedErr("Missing auth cookie", err))
 			c.Abort()
 			return
 		}
@@ -21,14 +21,14 @@ func AuthMiddleware() gin.HandlerFunc {
 		token, err := jwt.Parse(tokenString, getSecret)
 
 		if err != nil || !token.Valid {
-			c.Error(errors.NewUnauthorizedErr("Invalid or expired token", err))
+			c.Error(apperrors.NewUnauthorizedErr("Invalid or expired token", err))
 			c.Abort()
 			return
 		}
 
 		tokenType, ok := token.Header["typ"].(string)
 		if !ok {
-			c.Error(errors.NewUnauthorizedErr("Invalid token type", nil))
+			c.Error(apperrors.NewUnauthorizedErr("Invalid token type", nil))
 			c.Abort()
 			return
 		}
@@ -39,7 +39,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			token, err = jwt.ParseWithClaims(tokenString, staffClaims, getSecret)
 
 			if err != nil || !token.Valid {
-				c.Error(errors.NewUnauthorizedErr("Invalid or expired token", err))
+				c.Error(apperrors.NewUnauthorizedErr("Invalid or expired token", err))
 				c.Abort()
 				return
 			}
@@ -53,7 +53,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			customerClaims := &CustomerClaims{}
 			token, err = jwt.ParseWithClaims(tokenString, customerClaims, getSecret)
 			if err != nil || !token.Valid {
-				c.Error(errors.NewUnauthorizedErr("Invalid or expired token", err))
+				c.Error(apperrors.NewUnauthorizedErr("Invalid or expired token", err))
 				c.Abort()
 				return
 			}
@@ -65,20 +65,20 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// RequireAnyRole middleware checks if the authenticated user has any of the specified roles
+// RequireAnyRole middleware checks if the authenticated user has any of the specified roles.
 func RequireAnyRole(roles ...models.Role) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenType, exists := c.Get("tokenType")
 
 		if !exists || tokenType.(JWTType) != StaffJWT {
-			c.Error(errors.NewForbiddenErr("Staff access required", nil))
+			c.Error(apperrors.NewForbiddenErr("Staff access required", nil))
 			c.Abort()
 			return
 		}
 
 		userRole, exists := c.Get("role")
 		if !exists {
-			c.Error(errors.NewInternalServerErr("Missing role in context", nil))
+			c.Error(apperrors.NewInternalServerErr("Missing role in context", nil))
 			c.Abort()
 			return
 		}
@@ -90,17 +90,17 @@ func RequireAnyRole(roles ...models.Role) gin.HandlerFunc {
 			}
 		}
 
-		c.Error(errors.NewForbiddenErr("Insufficient permissions", nil))
+		c.Error(apperrors.NewForbiddenErr("Insufficient permissions", nil))
 		c.Abort()
 	}
 }
 
-// RequireOrderAccess creates middleware that checks if the person is authorized to modify the order based on id
+// RequireOrderAccess creates middleware that checks if the person is authorized to modify the order based on id.
 func RequireOrderAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenType, exists := c.Get("tokenType")
 		if !exists || tokenType != CustomerJWT {
-			c.Error(errors.NewForbiddenErr("Only the creator of this order can modify it", nil))
+			c.Error(apperrors.NewForbiddenErr("Only the creator of this order can modify it", nil))
 			c.Abort()
 			return
 		}
@@ -108,7 +108,7 @@ func RequireOrderAccess() gin.HandlerFunc {
 		contextOrderID, exists := c.Get("orderID")
 
 		if !exists {
-			c.Error(errors.NewInternalServerErr("Missing order id in context", nil))
+			c.Error(apperrors.NewInternalServerErr("Missing order id in context", nil))
 			c.Abort()
 			return
 		}
@@ -116,7 +116,7 @@ func RequireOrderAccess() gin.HandlerFunc {
 		pathOrderID := c.Param("orderID")
 
 		if contextOrderID != pathOrderID {
-			c.Error(errors.NewForbiddenErr("Only the creator of this order can modify it", nil))
+			c.Error(apperrors.NewForbiddenErr("Only the creator of this order can modify it", nil))
 			c.Abort()
 			return
 		}

@@ -1,15 +1,16 @@
 package handlers
 
 import (
-	stdErrors "errors"
+	"errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/dtos"
-	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
 )
 
+// MealsHandler handles HTTP requests related to meal operations.
 type MealsHandler struct {
 	mealService services.MealService
 }
@@ -18,6 +19,7 @@ func NewMealsHandler(mealService services.MealService) *MealsHandler {
 	return &MealsHandler{mealService: mealService}
 }
 
+// GetMeals handles the HTTP GET request to retrieve all meals and returns them as a JSON response.
 func (mh *MealsHandler) GetMeals() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		meals, err := mh.mealService.GetAll()
@@ -25,10 +27,12 @@ func (mh *MealsHandler) GetMeals() gin.HandlerFunc {
 			c.Error(err)
 			return
 		}
-		c.JSON(http.StatusOK, meals)
+		c.JSON(http.StatusOK, dtos.ToMealResponses(meals))
 	}
 }
 
+// GetMealsWithDeleted handles the HTTP GET request to retrieve all meals, including soft deleted ones
+// and returns them as a JSON response.
 func (mh *MealsHandler) GetMealsWithDeleted() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		meals, err := mh.mealService.GetAllWithDeleted()
@@ -37,21 +41,22 @@ func (mh *MealsHandler) GetMealsWithDeleted() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, meals)
+		c.JSON(http.StatusOK, dtos.ToMealResponses(meals))
 	}
 }
 
+// PostMeal handles the HTTP POST request to create a new meal with the provided details and photo.
 func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var createMealRequest dtos.CreateMealRequest
 		if err := c.ShouldBind(&createMealRequest); err != nil {
-			c.Error(errors.NewValidationErr("Invalid request", err))
+			c.Error(apperrors.NewValidationErr("Invalid request", err))
 			return
 		}
 
 		photo, err := c.FormFile("photo")
 		if err != nil {
-			c.Error(errors.NewValidationErr("photo not provided", err))
+			c.Error(apperrors.NewValidationErr("photo not provided", err))
 			return
 		}
 
@@ -62,51 +67,54 @@ func (mh *MealsHandler) PostMeal() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, meal)
+		c.JSON(http.StatusCreated, dtos.ToMealResponse(meal))
 	}
 }
 
-func (mh *MealsHandler) PutMeal() gin.HandlerFunc {
+// PostMealReplace handles the HTTP POST request to replace an existing meal
+// by its ID with new details and an optional photo.
+func (mh *MealsHandler) PostMealReplace() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var mealRequest dtos.CreateMealRequest
 		if err := c.ShouldBind(&mealRequest); err != nil {
-			c.Error(errors.NewValidationErr("invalid request", err))
+			c.Error(apperrors.NewValidationErr("invalid request", err))
 			return
 		}
 
 		id := c.Param("mealID")
 		idUint, err := strconv.ParseUint(id, 10, 64)
 		if err != nil {
-			c.Error(errors.NewValidationErr("Invalid meal id", err))
+			c.Error(apperrors.NewValidationErr("Invalid meal id", err))
 			return
 		}
 
 		photo, err := c.FormFile("photo")
-		if err != nil && !stdErrors.Is(err, http.ErrMissingFile) {
-			c.Error(errors.NewValidationErr("error processing the photo", err))
+		if err != nil && !errors.Is(err, http.ErrMissingFile) {
+			c.Error(apperrors.NewValidationErr("error processing the photo", err))
 			return
 		}
 
 		meal := mealRequest.ToModel()
 		meal.ID = uint(idUint)
 
-		err = mh.mealService.Update(c, meal, photo)
+		err = mh.mealService.Replace(c, meal, photo)
 		if err != nil {
 			c.Error(err)
 			return
 		}
 
-		c.JSON(http.StatusOK, meal)
+		c.JSON(http.StatusOK, dtos.ToMealResponse(meal))
 	}
 }
 
+// DeleteMeal handles the HTTP DELETE request to remove a meal by its ID.
 func (mh *MealsHandler) DeleteMeal() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("mealID")
 
 		idUint, err := strconv.ParseUint(id, 10, 64)
 		if err != nil {
-			c.Error(errors.NewValidationErr("id is invalid", nil))
+			c.Error(apperrors.NewValidationErr("id is invalid", nil))
 			return
 		}
 
@@ -117,7 +125,7 @@ func (mh *MealsHandler) DeleteMeal() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Meal deleted"})
+		c.Status(http.StatusNoContent)
 
 	}
 }

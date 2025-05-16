@@ -7,9 +7,17 @@ type UserResponse struct {
 	Role     models.Role `json:"role"`
 }
 
-func ModelToUserResponse(user *models.StaffMember) *UserResponse {
+func ModelToUserResponse(user *models.User) *UserResponse {
 	return &UserResponse{
 		Username: user.Username,
 		Role:     user.Role,
 	}
+}
+
+func ModelToUserResponses(users []*models.User) []*UserResponse {
+	var result []*UserResponse
+	for _, u := range users {
+		result = append(result, ModelToUserResponse(u))
+	}
+	return result
 }

@@ -1,7 +1,7 @@
 package repositories_test
 
 import (
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	testinghelpers "github.com/Ruclo/MyMeals/internal/testing"
@@ -81,9 +81,9 @@ func TestMealRepository_GetByID(t *testing.T) {
 	meal, err = repo.GetByID(999)
 	assert.Error(t, err)
 
-	var appErr *errors.AppError
+	var appErr *apperrors.AppError
 	if assert.ErrorAs(t, err, &appErr) {
-		assert.Equal(t, http.StatusNotFound, appErr.StatusCode) // TODO: Better error checking
+		assert.True(t, apperrors.IsNotFoundErr(appErr))
 	}
 
 	assert.Nil(t, meal)
@@ -121,47 +121,6 @@ func TestMealRepository_Create(t *testing.T) {
 	})
 }
 
-/*func TestMealRepository_Update(t *testing.T) {
-	t.Run("existing meal", func(t *testing.T) {
-		db := testinghelpers.NewTestDB(t)
-		defer testinghelpers.CleanupTestDB(t, db)
-		repo := repositories.NewMealRepository(db)
-
-		meal := getTestMeal()
-		err := db.Create(&meal).Error
-		require.NoError(t, err)
-		assert.NotZero(t, meal.ID)
-
-		meal.Name = "Updated name"
-		err = repo.Update(meal)
-		assert.NoError(t, err)
-
-		var fetchedMeal models.Meal
-		err = db.Model(&models.Meal{}).Where("ID = ?", meal.ID).First(&fetchedMeal).Error
-		assert.NoError(t, err)
-		assertMealEquals(t, meal, &fetchedMeal)
-
-		fetchedMeal.Category = "Invalid Category"
-		assert.Error(t, repo.Update(&fetchedMeal))
-
-	})
-	t.Run("non-existent meal", func(t *testing.T) {
-		db := testinghelpers.NewTestDB(t)
-		defer testinghelpers.CleanupTestDB(t, db)
-		repo := repositories.NewMealRepository(db)
-
-		meal := getTestMeal()
-		meal.ID = 1
-		err := repo.Update(meal)
-		assert.Error(t, err)
-
-		var appErr *errors.AppError
-		if assert.ErrorAs(t, err, &appErr) {
-			assert.Equal(t, http.StatusNotFound, appErr.StatusCode)
-		}
-	})
-}*/
-
 func TestMealRepository_Delete(t *testing.T) {
 	t.Run("existing meal", func(t *testing.T) {
 		db := testinghelpers.NewTestDB(t)
@@ -193,7 +152,7 @@ func TestMealRepository_Delete(t *testing.T) {
 		err := repo.Delete(&models.Meal{ID: 1})
 		assert.Error(t, err)
 
-		var appErr *errors.AppError
+		var appErr *apperrors.AppError
 
 		if assert.ErrorAs(t, err, &appErr) {
 			assert.Equal(t, http.StatusNotFound, appErr.StatusCode)

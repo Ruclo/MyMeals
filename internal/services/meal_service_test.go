@@ -5,7 +5,7 @@ import (
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"testing"
 
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/Ruclo/MyMeals/internal/storage"
@@ -101,7 +101,7 @@ func (s *MealServiceTestSuite) TestCreate() {
 			},
 			setupMock: func() {
 				// Mock upload error
-				uploadErr := errors.NewInternalServerErr("Upload failed", nil)
+				uploadErr := apperrors.NewInternalServerErr("Upload failed", nil)
 				s.mockImageStorage.On("UploadCropped",
 					s.ginContext,
 					mock.AnythingOfType("*multipart.FileHeader"),
@@ -133,7 +133,7 @@ func (s *MealServiceTestSuite) TestCreate() {
 				).Return(uploadResult, nil)
 
 				// Mock database error
-				dbErr := errors.NewInternalServerErr("Database error", nil)
+				dbErr := apperrors.NewInternalServerErr("Database error", nil)
 				s.mockRepo.On("Create", mock.AnythingOfType("*models.Meal")).Return(dbErr)
 
 				// Mock delete call due to rollback
@@ -253,7 +253,7 @@ func (s *MealServiceTestSuite) TestGetAll() {
 		{
 			name: "DatabaseError",
 			setupMock: func() {
-				dbErr := errors.NewInternalServerErr("Database error", nil)
+				dbErr := apperrors.NewInternalServerErr("Database error", nil)
 				s.mockRepo.On("GetAll").Return(nil, dbErr)
 			},
 			expectedMeals: nil,
@@ -315,7 +315,6 @@ func (s *MealServiceTestSuite) TestUpdate() {
 				Category:    "Updated Category",
 				Description: "Updated Description",
 				Price:       price1999,
-				ImageURL:    "old-image.jpg",
 			},
 			photo: &multipart.FileHeader{Filename: "new-photo.jpg"},
 			setupMock: func() {
@@ -438,12 +437,12 @@ func (s *MealServiceTestSuite) TestUpdate() {
 			photo: nil,
 			setupMock: func() {
 				// Mock meal not found
-				notFoundErr := errors.NewNotFoundErr("Meal not found", nil)
+				notFoundErr := apperrors.NewNotFoundErr("Meal not found", nil)
 				s.mockRepo.On("GetByID", uint(99)).Return(nil, notFoundErr)
 			},
 			expectedError: true,
 			errorPredicate: func(err error) bool {
-				return errors.IsNotFoundErr(err)
+				return apperrors.IsNotFoundErr(err)
 			},
 		},
 		{
@@ -470,11 +469,11 @@ func (s *MealServiceTestSuite) TestUpdate() {
 
 				// Mock transaction error
 				s.mockRepo.On("WithTransaction", mock.AnythingOfType("func(repositories.MealRepository) error")).
-					Return(errors.NewInternalServerErr("Transaction failed", nil))
+					Return(apperrors.NewInternalServerErr("Transaction failed", nil))
 			},
 			expectedError: true,
 			errorPredicate: func(err error) bool {
-				return errors.IsInternalServerErr(err)
+				return apperrors.IsInternalServerErr(err)
 			},
 		},
 		{
@@ -507,15 +506,15 @@ func (s *MealServiceTestSuite) TestUpdate() {
 
 						// Inside transaction, Create returns an error
 						s.mockRepo.On("Create", mock.AnythingOfType("*models.Meal")).
-							Return(errors.NewInternalServerErr("Failed to create meal", nil))
+							Return(apperrors.NewInternalServerErr("Failed to create meal", nil))
 
 						// Call the function which should now return an error
 						txFunc(s.mockRepo)
-					}).Return(errors.NewInternalServerErr("Failed to create meal", nil))
+					}).Return(apperrors.NewInternalServerErr("Failed to create meal", nil))
 			},
 			expectedError: true,
 			errorPredicate: func(err error) bool {
-				return errors.IsInternalServerErr(err) && err.Error() == "Failed to create meal"
+				return apperrors.IsInternalServerErr(err) && err.Error() == "Failed to create meal"
 			},
 		},
 		{
@@ -547,17 +546,17 @@ func (s *MealServiceTestSuite) TestUpdate() {
 						txFunc := args.Get(0).(func(repositories.MealRepository) error)
 
 						// Inside transaction, upload fails
-						uploadErr := errors.NewInternalServerErr("Failed to upload photo", nil)
+						uploadErr := apperrors.NewInternalServerErr("Failed to upload photo", nil)
 						s.mockImageStorage.On("UploadCropped", mock.Anything, mock.AnythingOfType("*multipart.FileHeader"), 1000, 1000).
 							Return(nil, uploadErr)
 
 						// Call the function which should return the upload error
 						txFunc(s.mockRepo)
-					}).Return(errors.NewInternalServerErr("Failed to upload photo", nil))
+					}).Return(apperrors.NewInternalServerErr("Failed to upload photo", nil))
 			},
 			expectedError: true,
 			errorPredicate: func(err error) bool {
-				return errors.IsInternalServerErr(err) && err.Error() == "Failed to upload photo"
+				return apperrors.IsInternalServerErr(err) && err.Error() == "Failed to upload photo"
 			},
 		},
 	}
@@ -581,7 +580,7 @@ func (s *MealServiceTestSuite) TestUpdate() {
 			}
 
 			// Act
-			err := s.mealService.Update(ctx, mealCopy, tc.photo)
+			err := s.mealService.Replace(ctx, mealCopy, tc.photo)
 
 			// Assert
 			if tc.expectedError {
@@ -622,7 +621,7 @@ func (s *MealServiceTestSuite) TestDelete() {
 			name:   "DatabaseError",
 			mealID: 1,
 			setupMock: func() {
-				dbErr := errors.NewInternalServerErr("Database error", nil)
+				dbErr := apperrors.NewInternalServerErr("Database error", nil)
 				s.mockRepo.On("Delete", mock.AnythingOfType("*models.Meal")).Return(dbErr)
 			},
 			expectedError: true,

@@ -1,8 +1,8 @@
 package auth
 
 import (
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/config"
-	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 	"strconv"
@@ -16,7 +16,7 @@ const (
 
 // JWTType represents the type of JWT token. It can be either staff or customer.
 // The type is used to determine the type of claims in the token.
-// Staff JWT tokens hold information about authenticated staff members
+// Staff JWT tokens hold information about authenticated staff members.
 // Customer JWT tokens are used to authorize review postings and order modifications by anonymous customers.
 type JWTType string
 
@@ -25,20 +25,20 @@ const (
 	CustomerJWT JWTType = "customer"
 )
 
-// StaffClaims represents the claims in a staff JWT token
+// StaffClaims represents the claims in a staff JWT token.
 type StaffClaims struct {
 	Role models.Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
-// CustomerClaims represents the claims in an anonymous JWT token
+// CustomerClaims represents the claims in an anonymous JWT token.
 type CustomerClaims struct {
 	OrderID string `json:"order_id"`
 	jwt.RegisteredClaims
 }
 
 // GenerateStaffJWT generates a JWT token for staff members
-// and returns the encoded token, expiration time and error
+// and returns the encoded token, expiration time and error.
 func GenerateStaffJWT(username string, role models.Role) (string, time.Time, error) {
 	expirationTime := time.Now().Add(StaffJwtExpirationTime)
 
@@ -52,7 +52,7 @@ func GenerateStaffJWT(username string, role models.Role) (string, time.Time, err
 
 	tokenStr, err := token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
 	if err != nil {
-		return "", time.Time{}, errors.NewInternalServerErr("Failed to generate JWT token", err)
+		return "", time.Time{}, apperrors.NewInternalServerErr("Failed to generate JWT token", err)
 	}
 
 	return tokenStr, expirationTime, err
@@ -60,7 +60,7 @@ func GenerateStaffJWT(username string, role models.Role) (string, time.Time, err
 }
 
 // GenerateCustomerJWT generates a JWT token for anonymous customers
-// and returns the encoded token, expiration time and error
+// and returns the encoded token, expiration time and error.
 func GenerateCustomerJWT(orderID uint) (string, time.Time, error) {
 	expirationTime := time.Now().Add(CustomerJwtExpirationTime)
 	claims := CustomerClaims{
@@ -73,7 +73,7 @@ func GenerateCustomerJWT(orderID uint) (string, time.Time, error) {
 
 	encodedToken, err := token.SignedString([]byte(config.ConfigInstance.JWTSecret()))
 	if err != nil {
-		return "", time.Time{}, errors.NewInternalServerErr("Failed to generate a customer jwt", err)
+		return "", time.Time{}, apperrors.NewInternalServerErr("Failed to generate a customer jwt", err)
 	}
 	return encodedToken, expirationTime, err
 }

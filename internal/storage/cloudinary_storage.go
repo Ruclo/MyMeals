@@ -5,29 +5,30 @@ import (
 	"fmt"
 	"mime/multipart"
 
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 )
 
-// CloudinaryStorage implements ImageStorage using Cloudinary
+// CloudinaryStorage implements ImageStorage using Cloudinary.
 type CloudinaryStorage struct {
 	client *cloudinary.Cloudinary
 }
 
-// NewCloudinaryStorage creates a new Cloudinary storage instance
+// NewCloudinaryStorage creates a new Cloudinary storage instance.
 func NewCloudinaryStorage(client *cloudinary.Cloudinary) ImageStorage {
 	return &CloudinaryStorage{client: client}
 }
 
-// Upload uploads an image with default parameters
+// Upload uploads an image with default parameters.
+// Limits the greater dimension to 1920 pixels.
 func (c *CloudinaryStorage) Upload(ctx context.Context, file *multipart.FileHeader) (*ImageResult, error) {
 	result, err := c.client.Upload.Upload(ctx, file, uploader.UploadParams{
 		Transformation: "c_limit,h_1920,w_1920",
 	})
 
 	if err != nil {
-		return nil, errors.NewInternalServerErr("Failed to upload image", err)
+		return nil, apperrors.NewInternalServerErr("Failed to upload image", err)
 	}
 
 	return &ImageResult{
@@ -36,15 +37,16 @@ func (c *CloudinaryStorage) Upload(ctx context.Context, file *multipart.FileHead
 	}, nil
 }
 
-// UploadCropped uploads an image with cropping parameters
-func (c *CloudinaryStorage) UploadCropped(ctx context.Context, file *multipart.FileHeader, width, height int) (*ImageResult, error) {
+// UploadCropped uploads an image with cropping parameters.
+func (c *CloudinaryStorage) UploadCropped(ctx context.Context,
+	file *multipart.FileHeader, width, height int) (*ImageResult, error) {
 	transformation := fmt.Sprintf("c_crop,h_%d,w_%d", height, width)
 	result, err := c.client.Upload.Upload(ctx, file, uploader.UploadParams{
 		Transformation: transformation,
 	})
 
 	if err != nil {
-		return nil, errors.NewInternalServerErr("Failed to upload cropped image", err)
+		return nil, apperrors.NewInternalServerErr("Failed to upload cropped image", err)
 	}
 
 	return &ImageResult{
@@ -53,11 +55,11 @@ func (c *CloudinaryStorage) UploadCropped(ctx context.Context, file *multipart.F
 	}, nil
 }
 
-// Delete removes an image from storage
+// Delete removes an image from storage.
 func (c *CloudinaryStorage) Delete(ctx context.Context, publicID string) error {
 	_, err := c.client.Upload.Destroy(ctx, uploader.DestroyParams{PublicID: publicID})
 	if err != nil {
-		return errors.NewInternalServerErr("Failed to delete image", err)
+		return apperrors.NewInternalServerErr("Failed to delete image", err)
 	}
 	return nil
 }

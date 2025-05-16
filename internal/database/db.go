@@ -33,21 +33,21 @@ func CreateConnection() *gorm.DB {
 	return db
 }
 
-// migrateSchema migrates the database schema to the latest version
+// migrateSchema migrates the database schema to the latest version.
 // It exits the program if the migration fails.
-// Make sure to add new models to the migration function
+// Make sure to add new models to the migration function.
 func migrateSchema(db *gorm.DB) {
 
-	err := db.AutoMigrate(&models.Meal{}, &models.Order{}, &models.StaffMember{}, &models.Review{}, &models.OrderMeal{})
+	err := db.AutoMigrate(&models.Meal{}, &models.Order{}, &models.User{}, &models.Review{}, &models.OrderMeal{})
 	if err != nil {
 		log.Fatal("Schema migration failed: ", err)
 	}
 }
 
-// WipeDB deletes all data from the database
+// WipeDB deletes all data from the database.
 // It exits the program if the wipe fails.
-// Make sure to add new models to the wipe function
-// Used in testing only
+// Make sure to add new models to the wipe function.
+// Used in testing only.
 func WipeDB(db *gorm.DB) {
 	if err := db.Exec("TRUNCATE TABLE order_meals, reviews, orders, meals, staff_members RESTART IDENTITY CASCADE").Error; err != nil {
 		log.Fatal("Failed to truncate tables: ", err)

@@ -20,3 +20,31 @@ func (req *CreateMealRequest) ToModel() *models.Meal {
 		Price:       req.Price,
 	}
 }
+
+type MealResponse struct {
+	ID          uint                `json:"id"`
+	Name        string              `json:"name"`
+	Category    models.MealCategory `json:"category"`
+	Description string              `json:"description"`
+	ImageURL    string              `json:"image_url"`
+	Price       decimal.Decimal     `json:"price"`
+}
+
+func ToMealResponse(meal *models.Meal) *MealResponse {
+	return &MealResponse{
+		ID:          meal.ID,
+		Name:        meal.Name,
+		Category:    meal.Category,
+		Description: meal.Description,
+		ImageURL:    meal.ImageURL,
+		Price:       meal.Price,
+	}
+}
+
+func ToMealResponses(meals []*models.Meal) []*MealResponse {
+	var result []*MealResponse
+	for _, m := range meals {
+		result = append(result, ToMealResponse(m))
+	}
+	return result
+}

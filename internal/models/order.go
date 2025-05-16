@@ -7,14 +7,16 @@ import (
 )
 
 type Order struct {
-	ID         uint        `gorm:"primaryKey;autoIncrement" json:"id"`
-	TableNo    int         `gorm:"check:table_no >= 1" json:"table_no" binding:"required"`
-	Notes      string      `gorm:"not null" json:"notes"`
-	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID; preload:true" json:"order_meals" binding:"required"`
-	CreatedAt  time.Time   `json:"created_at"`
-	Review     *Review     `gorm:"foreignKey:OrderID" json:"review,omitempty"`
+	ID         uint        `gorm:"primaryKey;autoIncrement"`
+	TableNo    int         `gorm:"check:table_no >= 1"`
+	Notes      string      `gorm:"not null"`
+	OrderMeals []OrderMeal `gorm:"foreignKey:OrderID; preload:true"`
+	CreatedAt  time.Time
+	Review     *Review `gorm:"foreignKey:OrderID"`
 }
 
+// BeforeCreate is a GORM hook that validates and resets fields before creating an Order record in the database.
+// It ensures the order contains at least one meal and resets the CreatedAt field if it is not zero.
 func (o *Order) BeforeCreate(tx *gorm.DB) error {
 	if len(o.OrderMeals) == 0 {
 		return errors.New("order must have at least one meal")
@@ -27,14 +29,9 @@ func (o *Order) BeforeCreate(tx *gorm.DB) error {
 }
 
 type OrderMeal struct {
-	OrderID   uint  `gorm:"primaryKey" json:"order_id"`
-	MealID    uint  `gorm:"primaryKey" json:"meal_id" binding:"required"`
-	Quantity  uint  `json:"quantity" binding:"required"`
-	Completed uint  `json:"completed"`
-	Meal      *Meal `gorm:"foreignKey:MealID" json:"-"`
-}
-
-func (om *OrderMeal) BeforeCreate(tx *gorm.DB) error {
-	//om.Completed = 0
-	return nil
+	OrderID   uint `gorm:"primaryKey"`
+	MealID    uint `gorm:"primaryKey"`
+	Quantity  uint
+	Completed uint
+	Meal      *Meal `gorm:"foreignKey:MealID"`
 }

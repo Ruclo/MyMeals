@@ -6,6 +6,7 @@ import (
 	"fmt"
 )
 
+// Role represents the two types of authenticated users.
 type Role string
 
 const (
@@ -13,6 +14,7 @@ const (
 	RegularStaffRole Role = "Regular Staff"
 )
 
+// Valid checks if the Role value is one of the predefined valid roles and returns an error if it is invalid.
 func (m Role) Valid() error {
 	switch m {
 	case AdminRole, RegularStaffRole:
@@ -22,6 +24,7 @@ func (m Role) Valid() error {
 	}
 }
 
+// Scan assigns a value to the Role type, converting from string or []byte, and validates it using the Valid method.
 func (m *Role) Scan(value interface{}) error {
 	if value == nil {
 		*m = ""
@@ -41,6 +44,7 @@ func (m *Role) Scan(value interface{}) error {
 	return m.Valid()
 }
 
+// Value converts the Role type to a driver.Value for database storage, returning an error if the role is invalid.
 func (m Role) Value() (driver.Value, error) {
 	if err := m.Valid(); err != nil {
 		return nil, err
@@ -48,8 +52,8 @@ func (m Role) Value() (driver.Value, error) {
 	return string(m), nil
 }
 
-type StaffMember struct {
-	Username string `gorm:"primaryKey" json:"username" binding:"required"`
-	Password string `gorm:"not null" json:"password" binding:"required,min=8"`
-	Role     Role   `gorm:"not null; default: 'Regular Staff'" json:"-"`
+type User struct {
+	Username string `gorm:"primaryKey"`
+	Password string `gorm:"not null"`
+	Role     Role   `gorm:"not null; default: 'Regular Staff'"`
 }

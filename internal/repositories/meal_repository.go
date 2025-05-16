@@ -1,20 +1,26 @@
 package repositories
 
 import (
-	stdErrors "errors"
+	"errors"
 	"fmt"
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"gorm.io/gorm"
 )
 
+// MealRepository provides an interface for CRUD operations on Meal entities and supports transactional operations.
+// WithTransaction executes a function within a database transaction and rolls back if an error occurs.
+// GetAll retrieves allMeal records from the database.
+// GetAllWithDeleted retrieves all Meal records, including soft-deleted ones, from the database.
+// GetByID retrieves a specific Meal by its ID from the database.
+// Create adds a new Meal record to the database.
+// Delete performs a soft delete on a Meal record in the database.
 type MealRepository interface {
 	WithTransaction(fn func(txRepo MealRepository) error) error
-	GetAll() ([]models.Meal, error)
-	GetAllWithDeleted() ([]models.Meal, error)
+	GetAll() ([]*models.Meal, error)
+	GetAllWithDeleted() ([]*models.Meal, error)
 	GetByID(ID uint) (*models.Meal, error)
 	Create(meal *models.Meal) error
-	//Update(meal *models.Meal) error
 	Delete(meal *models.Meal) error
 }
 
@@ -29,7 +35,7 @@ type mealRepositoryImpl struct {
 func (r *mealRepositoryImpl) WithTransaction(fn func(txRepo MealRepository) error) error {
 	tx := r.db.Begin()
 	if tx.Error != nil {
-		return errors.NewInternalServerErr("Failed to start a transaction", tx.Error)
+		return apperrors.NewInternalServerErr("Failed to start a transaction", tx.Error)
 	}
 	defer tx.Rollback()
 
@@ -40,26 +46,26 @@ func (r *mealRepositoryImpl) WithTransaction(fn func(txRepo MealRepository) erro
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		return errors.NewInternalServerErr("Failed to commit transaction", err)
+		return apperrors.NewInternalServerErr("Failed to commit transaction", err)
 	}
 	return nil
 }
 
-func (r *mealRepositoryImpl) GetAll() ([]models.Meal, error) {
-	var meals []models.Meal
+func (r *mealRepositoryImpl) GetAll() ([]*models.Meal, error) {
+	var meals []*models.Meal
 
 	if err := r.db.Find(&meals).Error; err != nil {
-		return nil, errors.NewInternalServerErr("Failed to get all meals", err)
+		return nil, apperrors.NewInternalServerErr("Failed to get all meals", err)
 	}
 
 	return meals, nil
 }
 
-func (r *mealRepositoryImpl) GetAllWithDeleted() ([]models.Meal, error) {
-	var meals []models.Meal
+func (r *mealRepositoryImpl) GetAllWithDeleted() ([]*models.Meal, error) {
+	var meals []*models.Meal
 
 	if err := r.db.Unscoped().Find(&meals).Error; err != nil {
-		return nil, errors.NewInternalServerErr("Failed to get all meals including deleted", err)
+		return nil, apperrors.NewInternalServerErr("Failed to get all meals including deleted", err)
 	}
 
 	return meals, nil
@@ -74,42 +80,29 @@ func (r *mealRepositoryImpl) GetByID(ID uint) (*models.Meal, error) {
 
 	}
 
-	if stdErrors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.NewNotFoundErr(fmt.Sprintf("Meal with ID %d not found", ID), err)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperrors.NewNotFoundErr(fmt.Sprintf("Meal with ID %d not found", ID), err)
 	}
 
-	return nil, errors.NewInternalServerErr("Failed to get meal", err)
+	return nil, apperrors.NewInternalServerErr("Failed to get meal", err)
 
 }
 
 func (r *mealRepositoryImpl) Create(meal *models.Meal) error {
 	if err := r.db.Create(meal).Error; err != nil {
-		return errors.NewInternalServerErr("Failed to create meal", err)
+		return apperrors.NewInternalServerErr("Failed to create meal", err)
 	}
 	return nil
 }
 
-/*func (r *mealRepositoryImpl) Update(meal *models.Meal) error {
-	err := r.db.Model(meal).Updates(meal).First(meal, meal.ID).Error
-	if stdErrors.Is(err, gorm.ErrRecordNotFound) {
-		return errors.NewNotFoundErr(fmt.Sprintf("meal %s with id %d not found", meal.Name, meal.ID), err)
-	}
-
-	if err != nil {
-		return errors.NewInternalServerErr("Failed to update meal", err)
-	}
-
-	return nil
-}*/
-
 func (r *mealRepositoryImpl) Delete(meal *models.Meal) error {
 	result := r.db.Delete(meal)
 	if err := result.Error; err != nil {
-		return errors.NewInternalServerErr("Failed to delete meal", err)
+		return apperrors.NewInternalServerErr("Failed to delete meal", err)
 	}
 
 	if result.RowsAffected == 0 {
-		return errors.NewNotFoundErr(fmt.Sprintf("meal %s not found", meal.Name), nil)
+		return apperrors.NewNotFoundErr(fmt.Sprintf("meal %s not found", meal.Name), nil)
 	}
 
 	return nil

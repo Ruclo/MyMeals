@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/auth"
 	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/database"
-	"github.com/Ruclo/MyMeals/internal/errors"
 	"github.com/Ruclo/MyMeals/internal/events"
 	"github.com/Ruclo/MyMeals/internal/handlers"
 	"github.com/Ruclo/MyMeals/internal/models"
@@ -41,12 +41,12 @@ func main() {
 	ordersHandler := handlers.NewOrdersHandler(orderService)
 	usersHandler := handlers.NewUsersHandler(userService)
 
-	regularStaff := models.StaffMember{
+	regularStaff := models.User{
 		Username: "regular",
 		Password: "password",
 		Role:     models.RegularStaffRole,
 	}
-	admin := models.StaffMember{
+	admin := models.User{
 		Username: "admin",
 		Password: "password",
 		Role:     models.AdminRole,
@@ -55,8 +55,8 @@ func main() {
 	userService.Create(&admin)
 
 	r := gin.Default()
-	r.Use(errors.ErrorHandler())
-	
+	r.Use(apperrors.ErrorHandler())
+
 	// Public routes
 	r.GET("/api/meals", mealsHandler.GetMeals())
 	r.POST("/api/login", usersHandler.Login())
@@ -64,11 +64,14 @@ func main() {
 
 	authorized := r.Group("/api")
 	authorized.Use(auth.AuthMiddleware())
+	authorized.GET("/me", usersHandler.GetMe())
+	authorized.GET("/orders/me", ordersHandler.GetMyOrder())
 
 	// AdminRole or RegularStaffRole routes
 	staffRoutes := authorized.Group("/")
 	staffRoutes.Use(auth.RequireAnyRole(models.RegularStaffRole, models.AdminRole))
 	{
+
 		staffRoutes.GET("/orders/pending", ordersHandler.GetPendingOrders())
 		staffRoutes.GET("/events/orders", sseServer.Handler()...)
 		staffRoutes.PUT("/account/password", usersHandler.ChangePassword())
@@ -81,7 +84,7 @@ func main() {
 	{
 		adminRoutes.GET("/meals/deleted", mealsHandler.GetMealsWithDeleted())
 		adminRoutes.POST("/meals", mealsHandler.PostMeal())
-		adminRoutes.PUT("/meals/:mealID", mealsHandler.PutMeal())
+		adminRoutes.POST("/meals/:mealID/replace", mealsHandler.PostMealReplace())
 		adminRoutes.DELETE("/meals/:mealID", mealsHandler.DeleteMeal())
 		adminRoutes.POST("/users", usersHandler.PostUser())
 		adminRoutes.GET("/orders", ordersHandler.GetOrders())

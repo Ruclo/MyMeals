@@ -1,14 +1,14 @@
-package errors
+package apperrors
 
 import (
-	stdErrors "errors"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"log"
 	"net/http"
 )
 
-// ErrorHandler handles errors and returns the appropriate response
+// ErrorHandler handles app errors and returns the appropriate response.
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
@@ -19,9 +19,9 @@ func ErrorHandler() gin.HandlerFunc {
 			log.Printf("Error: %v", err.Error())
 
 			// Check if it's an AppError
-			// All errors should be wrapped in AppError
+			// All apperrors should be wrapped in AppError
 			var appErr *AppError
-			if !stdErrors.As(err, &appErr) {
+			if !errors.As(err, &appErr) {
 				log.Printf("Unhandled error: %v", err.Error())
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 				return
@@ -30,14 +30,14 @@ func ErrorHandler() gin.HandlerFunc {
 			// Check if it's a validation error
 			if IsValidationErr(appErr) {
 				var validationErrors validator.ValidationErrors
-				stdErrors.As(appErr.Err, &validationErrors)
+				errors.As(appErr.Err, &validationErrors)
 				var invalidFields []string
 
 				for _, err := range validationErrors {
 					invalidFields = append(invalidFields, err.Field())
 				}
 
-				c.JSON(appErr.StatusCode, gin.H{"error": "Invalid request", "invalidFields": invalidFields})
+				c.JSON(appErr.StatusCode, gin.H{"error": appErr.Message, "invalidFields": invalidFields})
 				return
 
 			}

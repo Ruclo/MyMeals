@@ -1,9 +1,9 @@
 package repositories
 
 import (
-	stdErrors "errors"
+	"errors"
 	"fmt"
-	"github.com/Ruclo/MyMeals/internal/errors"
+	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"gorm.io/gorm"
 )
@@ -19,7 +19,7 @@ type orderRepositoryImpl struct {
 func (r *orderRepositoryImpl) WithTransaction(fn func(txRepo OrderRepository) error) error {
 	tx := r.db.Begin()
 	if tx.Error != nil {
-		return errors.NewInternalServerErr("Failed to start a transaction", tx.Error)
+		return apperrors.NewInternalServerErr("Failed to start a transaction", tx.Error)
 	}
 	defer tx.Rollback()
 
@@ -30,7 +30,7 @@ func (r *orderRepositoryImpl) WithTransaction(fn func(txRepo OrderRepository) er
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		return errors.NewInternalServerErr("Failed to commit transaction", err)
+		return apperrors.NewInternalServerErr("Failed to commit transaction", err)
 	}
 
 	return nil
@@ -47,11 +47,11 @@ func (r *orderRepositoryImpl) GetByID(orderID uint) (*models.Order, error) {
 		return &order, nil
 	}
 
-	if stdErrors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.NewNotFoundErr(fmt.Sprintf("Order with id %d not found", orderID), err)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperrors.NewNotFoundErr(fmt.Sprintf("Order with id %d not found", orderID), err)
 	}
 
-	return nil, errors.NewInternalServerErr(fmt.Sprintf("Failed to get order with ID %d", orderID), err)
+	return nil, apperrors.NewInternalServerErr(fmt.Sprintf("Failed to get order with ID %d", orderID), err)
 }
 
 func (r *orderRepositoryImpl) GetOrders(params OrderQueryParams) ([]*models.Order, error) {
@@ -78,7 +78,7 @@ func (r *orderRepositoryImpl) GetOrders(params OrderQueryParams) ([]*models.Orde
 	query = query.Preload("OrderMeals").Preload("Review")
 
 	if err := query.Find(&orders).Error; err != nil {
-		return nil, errors.NewInternalServerErr(fmt.Sprintf("Failed to get orders with params %+v", params), nil)
+		return nil, apperrors.NewInternalServerErr(fmt.Sprintf("Failed to get orders with params %+v", params), nil)
 	}
 
 	return orders, nil
@@ -90,7 +90,7 @@ func (r *orderRepositoryImpl) Create(order *models.Order) error {
 		return nil
 	}
 
-	return errors.NewInternalServerErr(fmt.Sprintf("Failed to create order %+v", order), nil)
+	return apperrors.NewInternalServerErr(fmt.Sprintf("Failed to create order %+v", order), nil)
 }
 
 func (r *orderRepositoryImpl) GetOrderMeal(orderID, mealID uint) (*models.OrderMeal, error) {
@@ -101,11 +101,11 @@ func (r *orderRepositoryImpl) GetOrderMeal(orderID, mealID uint) (*models.OrderM
 		return &orderMeal, nil
 	}
 
-	if stdErrors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.NewNotFoundErr(fmt.Sprintf("Order %d does not have meal with id %d", orderID, mealID), err)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperrors.NewNotFoundErr(fmt.Sprintf("Order %d does not have meal with id %d", orderID, mealID), err)
 	}
 
-	return nil, errors.NewInternalServerErr(fmt.Sprintf("Failed to get order meal order id: %d meal id: %d", orderID, mealID), err)
+	return nil, apperrors.NewInternalServerErr(fmt.Sprintf("Failed to get order meal order id: %d meal id: %d", orderID, mealID), err)
 }
 
 func (r *orderRepositoryImpl) CreateOrderMeal(orderMeal *models.OrderMeal) error {
@@ -114,17 +114,17 @@ func (r *orderRepositoryImpl) CreateOrderMeal(orderMeal *models.OrderMeal) error
 		return nil
 	}
 
-	return errors.NewInternalServerErr(fmt.Sprintf("Failed to create order meal %+v", orderMeal), err)
+	return apperrors.NewInternalServerErr(fmt.Sprintf("Failed to create order meal %+v", orderMeal), err)
 
 }
 
 func (r *orderRepositoryImpl) UpdateOrderMeal(orderMeal *models.OrderMeal) error {
 	res := r.db.Model(orderMeal).Updates(orderMeal)
 	if res.Error != nil {
-		return errors.NewInternalServerErr(fmt.Sprintf("Failed to update order meal %+v", orderMeal), res.Error)
+		return apperrors.NewInternalServerErr(fmt.Sprintf("Failed to update order meal %+v", orderMeal), res.Error)
 	}
 	if res.RowsAffected == 0 {
-		return errors.NewNotFoundErr(fmt.Sprintf("Order meal %+v not found", orderMeal), res.Error)
+		return apperrors.NewNotFoundErr(fmt.Sprintf("Order meal %+v not found", orderMeal), res.Error)
 	}
 
 	return nil
@@ -137,5 +137,5 @@ func (r *orderRepositoryImpl) CreateReview(review *models.Review) error {
 		return nil
 	}
 
-	return errors.NewInternalServerErr(fmt.Sprintf("Failed to create a review %+v", review), nil)
+	return apperrors.NewInternalServerErr(fmt.Sprintf("Failed to create a review %+v", review), nil)
 }

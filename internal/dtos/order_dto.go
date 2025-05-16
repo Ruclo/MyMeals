@@ -40,7 +40,7 @@ type OrderResponse struct {
 	Notes     string              `json:"notes"`
 	CreatedAt time.Time           `json:"created_at"`
 	Items     []OrderMealResponse `json:"items"`
-	Review    *models.Review      `json:"review,omitempty"`
+	Review    *ReviewResponse     `json:"review,omitempty"`
 }
 
 type OrderMealResponse struct {
@@ -56,7 +56,7 @@ func ToOrderResponse(order *models.Order) *OrderResponse {
 		Notes:     order.Notes,
 		CreatedAt: order.CreatedAt,
 		Items:     make([]OrderMealResponse, len(order.OrderMeals)),
-		Review:    order.Review,
+		Review:    ModelToReviewResponse(order.Review),
 	}
 
 	for i, orderMeal := range order.OrderMeals {
