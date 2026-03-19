@@ -59,6 +59,7 @@ func main() {
 	// Public routes
 	r.GET("/api/meals", mealsHandler.GetMeals())
 	r.POST("/api/login", usersHandler.Login())
+	r.POST("/api/logout", usersHandler.Logout())
 	r.POST("/api/orders", ordersHandler.PostOrder())
 	r.GET("/api/admin/credentials", usersHandler.GetAdminCredentials())
 

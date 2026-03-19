@@ -7,7 +7,7 @@ Backend for a restaurant dashboard. Customers can order food directly to their t
 - For Docker Compose, set `DB_HOST=db` and `DB_PORT=5432`
 
 **Run (Docker Compose)**
-1. Ensure `MyMeals/.env` exists with the database values that match `docker-compose.yml`
+1. Ensure `MyMeals/.env` exists with the required database values
 2. From `C:\Users\vavri\Desktop\chob\mymeals`, run:
 ```bash
 docker compose up --build
@@ -24,3 +24,7 @@ go run ./cmd
 
 **Notes**
 - Two default users are created at startup: `admin` / `password` and `regular` / `password`
+
+**Related**
+- Root project: `../README.md`
+- Frontend: `../Mymealsfe/README.md`

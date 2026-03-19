@@ -169,6 +169,15 @@ func (uh *UsersHandler) DeleteUser() gin.HandlerFunc {
 	}
 }
 
+// Logout clears the auth cookie.
+func (uh *UsersHandler) Logout() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.SetSameSite(http.SameSiteStrictMode)
+		c.SetCookie("token", "", -1, "/", "", true, true)
+		c.Status(http.StatusNoContent)
+	}
+}
+
 func getEnvOrDefault(key, fallback string) string {
 	value, exists := os.LookupEnv(key)
 	if !exists || value == "" {
