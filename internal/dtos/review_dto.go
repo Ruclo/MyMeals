@@ -25,6 +25,9 @@ type ReviewResponse struct {
 }
 
 func ModelToReviewResponse(review *models.Review) *ReviewResponse {
+	if review == nil {
+		return nil
+	}
 	return &ReviewResponse{
 		ID:        review.ID,
 		Rating:    review.Rating,

@@ -14,6 +14,7 @@ import (
 	cloudinary2 "github.com/cloudinary/cloudinary-go/v2"
 	"github.com/gin-gonic/gin"
 	"log"
+	"os"
 )
 
 func main() {
@@ -41,18 +42,16 @@ func main() {
 	ordersHandler := handlers.NewOrdersHandler(orderService)
 	usersHandler := handlers.NewUsersHandler(userService)
 
-	regularStaff := models.User{
-		Username: "regular",
-		Password: "password",
-		Role:     models.RegularStaffRole,
-	}
+	adminUsername := getEnvOrDefault("ADMIN_USERNAME", "admin")
+	adminPassword := getEnvOrDefault("ADMIN_PASSWORD", "password")
 	admin := models.User{
-		Username: "admin",
-		Password: "password",
+		Username: adminUsername,
+		Password: adminPassword,
 		Role:     models.AdminRole,
 	}
-	userService.Create(&regularStaff)
-	userService.Create(&admin)
+	if err := ensureAdmin(userRepo, userService, &admin); err != nil {
+		log.Fatal(err)
+	}
 
 	r := gin.Default()
 	r.Use(apperrors.ErrorHandler())
@@ -61,6 +60,7 @@ func main() {
 	r.GET("/api/meals", mealsHandler.GetMeals())
 	r.POST("/api/login", usersHandler.Login())
 	r.POST("/api/orders", ordersHandler.PostOrder())
+	r.GET("/api/admin/credentials", usersHandler.GetAdminCredentials())
 
 	authorized := r.Group("/api")
 	authorized.Use(auth.AuthMiddleware())
@@ -101,4 +101,29 @@ func main() {
 	}
 
 	r.Run()
+}
+
+func getEnvOrDefault(key, fallback string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return fallback
+	}
+	return value
+}
+
+func ensureAdmin(userRepo repositories.UserRepository, userService services.UserService, admin *models.User) error {
+	found, err := userRepo.GetByUsername(admin.Username)
+	if err != nil {
+		if apperrors.IsNotFoundErr(err) {
+			return userService.Create(admin)
+		}
+		return err
+	}
+
+	if found.Role != models.AdminRole {
+		found.Role = models.AdminRole
+		return userRepo.Update(found)
+	}
+
+	return nil
 }

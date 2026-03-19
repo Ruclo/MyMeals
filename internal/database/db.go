@@ -44,17 +44,6 @@ func migrateSchema(db *gorm.DB) {
 	}
 }
 
-// WipeDB deletes all data from the database.
-// It exits the program if the wipe fails.
-// Make sure to add new models to the wipe function.
-// Used in testing only.
-func WipeDB(db *gorm.DB) {
-	if err := db.Exec("TRUNCATE TABLE order_meals, reviews, orders, meals, staff_members RESTART IDENTITY CASCADE").Error; err != nil {
-		log.Fatal("Failed to truncate tables: ", err)
-	}
-
-}
-
 // InitDB creates a new database connection and migrates the schema and returns the database connection.
 // Exits the program on failure.
 func InitDB() *gorm.DB {

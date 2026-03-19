@@ -3,11 +3,13 @@ package handlers
 import (
 	"github.com/Ruclo/MyMeals/internal/apperrors"
 	"github.com/Ruclo/MyMeals/internal/auth"
+	"github.com/Ruclo/MyMeals/internal/config"
 	"github.com/Ruclo/MyMeals/internal/dtos"
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/services"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -19,6 +21,21 @@ type UsersHandler struct {
 
 func NewUsersHandler(userService services.UserService) *UsersHandler {
 	return &UsersHandler{userService: userService}
+}
+
+// GetAdminCredentials exposes the admin username/password for convenience in local/dev.
+// This is intentionally public per product requirements.
+func (uh *UsersHandler) GetAdminCredentials() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username := getEnvOrDefault("ADMIN_USERNAME", "admin")
+		password := getEnvOrDefault("ADMIN_PASSWORD", "password")
+
+		c.JSON(http.StatusOK, gin.H{
+			"username": username,
+			"password": password,
+			"jwtSecretSet": config.ConfigInstance.JWTSecret() != nil,
+		})
+	}
 }
 
 // Login handles the HTTP POST request to log in.
@@ -150,4 +167,12 @@ func (uh *UsersHandler) DeleteUser() gin.HandlerFunc {
 		c.Status(http.StatusNoContent)
 
 	}
+}
+
+func getEnvOrDefault(key, fallback string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return fallback
+	}
+	return value
 }

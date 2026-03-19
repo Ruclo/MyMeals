@@ -83,8 +83,6 @@ func (s *SSEServer) clientConnectMiddleware(c *gin.Context) {
 	s.register <- clientChan
 
 	defer func() {
-		for range clientChan {
-		}
 		s.unregister <- clientChan
 	}()
 	// Send closed connection to event server

@@ -66,9 +66,8 @@ func (c *Config) CloudinaryUrl() string {
 //
 // The required environment variables are listed in .env.example.
 func InitConfig() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on environment variables")
 	}
 
 	ConfigInstance = Config{}

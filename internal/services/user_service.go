@@ -42,7 +42,11 @@ func (us *userService) Create(user *models.User) error {
 	}
 
 	user.Password = string(hashedPassword)
-	user.Role = models.RegularStaffRole
+	if user.Role == "" {
+		user.Role = models.RegularStaffRole
+	} else if err := user.Role.Valid(); err != nil {
+		return apperrors.NewValidationErr("Invalid role", err)
+	}
 	return us.userRepository.Create(user)
 }
 

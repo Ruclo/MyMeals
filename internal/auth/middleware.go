@@ -61,6 +61,10 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Set("orderID", customerClaims.OrderID)
 			c.Set("tokenType", CustomerJWT)
 			c.Next()
+		default:
+			c.Error(apperrors.NewUnauthorizedErr("Invalid token type", nil))
+			c.Abort()
+			return
 		}
 	}
 }
