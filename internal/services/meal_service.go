@@ -6,7 +6,10 @@ import (
 	"github.com/Ruclo/MyMeals/internal/models"
 	"github.com/Ruclo/MyMeals/internal/repositories"
 	"github.com/Ruclo/MyMeals/internal/storage"
+	"io"
+	"net/http"
 	"mime/multipart"
+	"strings"
 )
 
 const MealPhotoSize = 1000
@@ -25,6 +28,27 @@ type mealService struct {
 	imageStorage   storage.ImageStorage
 }
 
+func validateImageFile(photo *multipart.FileHeader) error {
+	file, err := photo.Open()
+	if err != nil {
+		return apperrors.NewInternalServerErr("Failed to open photo", err)
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		return apperrors.NewInternalServerErr("Failed to read photo", err)
+	}
+
+	mimeType := http.DetectContentType(buffer[:n])
+	if !strings.HasPrefix(mimeType, "image/") {
+		return apperrors.NewValidationErr("Photo must be an image", nil)
+	}
+
+	return nil
+}
+
 func NewMealService(mealRepository repositories.MealRepository, imageStorage storage.ImageStorage) MealService {
 	return &mealService{
 		mealRepository: mealRepository,
@@ -36,6 +60,10 @@ func NewMealService(mealRepository repositories.MealRepository, imageStorage sto
 func (ms *mealService) Create(c context.Context,
 	meal *models.Meal,
 	photo *multipart.FileHeader) error {
+	if err := validateImageFile(photo); err != nil {
+		return err
+	}
+
 	result, err := ms.imageStorage.UploadCropped(c, photo, MealPhotoSize, MealPhotoSize)
 
 	if err != nil {
@@ -82,6 +110,10 @@ func (ms *mealService) Replace(c context.Context, meal *models.Meal, photo *mult
 
 	err = ms.mealRepository.WithTransaction(func(tx repositories.MealRepository) error {
 		if photo != nil {
+			if err := validateImageFile(photo); err != nil {
+				return err
+			}
+
 			result, err := ms.imageStorage.UploadCropped(c, photo, MealPhotoSize, MealPhotoSize)
 			if err != nil {
 				return err

@@ -1,4 +1,5 @@
 # MyMeals Backend
+Repo: `https://github.com/Ruclo/MyMeals`
 Backend for a restaurant dashboard. Customers can order food directly to their table and leave reviews, and employees can see active orders in real time.
 
 **Environment**
@@ -26,5 +27,5 @@ go run ./cmd
 - Two default users are created at startup: `admin` / `password` and `regular` / `password`
 
 **Related**
-- Root project: `../README.md`
-- Frontend: `../Mymealsfe/README.md`
+- Root project: `https://github.com/Ruclo/mymealsdashboard`
+- Frontend: `https://github.com/Ruclo/Mymealsfe`
